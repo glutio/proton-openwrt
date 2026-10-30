@@ -1,0 +1,2 @@
+# Optional Windows/development oracle only; never installed on the router.
+bcrypt==5.0.0

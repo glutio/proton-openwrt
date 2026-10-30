@@ -1,0 +1,78 @@
+Target: GL.iNet GL-MT3000, firmware 4.11.0, OpenWrt 21.02-SNAPSHOT
+Verified by SSH against the target on 2026-10-29/30.
+
+Runtime (already installed):
+lua5.4                     5.4.7-1
+lua-ffi-lua5.4             1.3.0-1
+lua-cjson-lua5.4           2.1.0-1
+libopenssl1.1             1.1.1q-1
+libcurl4                  7.83.1-1
+libc                      1.1.24-3 (musl crypt supports $2y$ bcrypt)
+ca-bundle                 20260601-1
+busybox                   1.33.2-3 (ash; stty is NOT present)
+
+Existing integration, NOT replaced:
+gl-sdk4-wg-client         git-2026.266.31173-4e39660-1
+gl-sdk4-vpn-client        git-2026.257.05085-f0fedb6-1
+gl-sdk4-vpn-policy        git-2026.194.21752-26880d4-1
+gl-oui-rpc                git-2026.260.37678-81b5441-1
+wireguard-tools           1.0.20210223-2
+kmod-wireguard            5.4.211-1
+lua                       5.1.5-9 (native ubus helper only)
+libubus-lua               2025-12-02-3cc98db1-2
+lua-cjson                 2.1.0-1 (native ubus helper only)
+
+Implementation loads the versioned libcrypto.so.1.1 and libcurl.so.4.
+Lua 5.1 cannot run the Proton API/crypto client. The gl_rpc.lua subprocess
+uses its existing ubus and cjson bindings; no extra packages are installed.
+No Python, Node.js, compiler, extra daemon, or additional packages are needed.
+The filesystem binding targets the verified Linux aarch64/musl stat ABI only.
+Sign-in is web-only; this BusyBox build lacks stty for hidden CLI input.
+
+Verification:
+- ubus call system board: GL.iNet GL-MT3000; kernel 5.4.211.
+- /etc/glversion: 4.11.0.
+- /etc/openwrt_release: 21.02-SNAPSHOT r15812+926-46b6ee7ffc,
+  aarch64_cortex-a53, mediatek/mt7981.
+- opkg list-installed: versions listed above.
+- lua5.4 require("ffi"), require("cjson.safe"): successful.
+- FFI loading libcrypto.so.1.1 and libcurl.so.4: successful.
+- libc crypt with a fixed $2y$10$ setting: valid bcrypt result.
+- Constant-time OpenSSL BN, Ed25519 verification/key generation, X25519,
+  SHA-256/SHA-512, and secure randomness: exercised by target tests.
+- FFI struct stat/openat/flock/fsync/rename: exercised by private-store tests.
+- tcgetattr/tcsetattr: verified through an actual SSH PTY and real login.
+- libcurl HTTPS, CA validation, and production SPKI pin: exercised live.
+- No GnuPG executable is installed or needed; modulus verification handles
+  only Proton's pinned, observed OpenPGP signature format.
+- Lua 5.1 lacks nixio/luci.jsonc; the helper needs neither.
+- Lua 5.1 require("ubus"), require("cjson"): successful.
+- gl-session.call bridge, native group/profile import, readback and status:
+  exercised on the target without changing the existing connection.
+- luac5.4 is absent; Lua's built-in loadfile performs syntax validation.
+
+Optional development-only dependency:
+Python 3 + bcrypt 5.0.0, installed in .venv to generate independent SRP vectors.
+Tests/oracle.json is already generated, so the router does not need these.
+
+Optional native web addon (already present on the target):
+nginx-ssl                 1.26.1-1
+gl-sdk4-ui-core           git-2026.264.27863-0a182fe-1
+gl-sdk4-ui-vpn-client     git-2026.244.40224-41efb95-1
+gl-sdk4-ui-vpndashboard   git-2026.264.09582-dfff471-1
+Lua 5.1 cjson.safe, OUI RPC/menu loader and ngx command proxy were exercised.
+/bin/mktemp creates mode0600 request files; /bin/gzip serves compressed views.
+The worker reuses the existing musl FFI open/fstat/read/write/close interfaces,
+plus ftruncate/lseek; no extra router library/package is required.
+Browser-only development tooling: Node.js, installed Chrome, Playwright 1.64.1
+(tests/package-lock.json). No Playwright browser download is needed.
+Catalogue cache/progressive browsing adds no runtime dependency or daemon.
+zlib 1.2.11-6 is installed, but curl --version lists no libz/gzip feature:
+the existing libcurl build cannot automatically decode compressed responses.
+The cache does not require replacing that firmware library or adding a decoder.
+
+Live-validation-only tools, already present (not runtime dependencies):
+/sbin/start-stop-daemon    BusyBox 1.33.2; detached, PID-tracked test job
+/usr/bin/timeout           GNU coreutils; bounded test process group
+/bin/sleep                 bounded native-handoff readiness checks
+nohup and setsid executables are absent; neither is required or installed.
