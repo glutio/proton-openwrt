@@ -16,4 +16,5 @@ if [ -e /usr/lib/proton-openwrt ]; then
 fi
 sh install.sh
 sh install-ui.sh
+echo "$VERSION" > /usr/lib/proton-openwrt/version
 echo "Proton VPN $VERSION installed. Reload the admin panel and open VPN -> Proton VPN."

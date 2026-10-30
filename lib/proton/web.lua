@@ -80,6 +80,11 @@ function M.status(state)
         authenticated = session ~= nil, restore_available = original ~= nil,
         managed = false, connected = false,
     }
+    local version = io.open("/usr/lib/proton-openwrt/version")
+    if version then
+        result.version = version:read("l")
+        version:close()
+    end
     if selected then
         result.selected = { name = selected.name, country = selected.country }
     end

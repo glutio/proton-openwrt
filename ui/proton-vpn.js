@@ -256,11 +256,9 @@
                     field("TOTP (if enabled)", input("totp", "text", "Six-digit current code")),
                     button("Sign in", this.login, !this.username || !this.password, "login")
                 ]) : null;
-            return h("gl-card", { attrs: { id: "proton-vpn-view" } }, [
-                h("style", "#proton-vpn-view{width:calc(100% - 32px);max-width:820px;margin:16px;box-sizing:border-box;font-family:inherit;color:var(--text-regular,#141427)}"
-                    + "#proton-vpn-view h2{display:flex;align-items:center;margin:0;font-size:18px;font-weight:500;line-height:24px;color:var(--text-title,#1f1f3d)}#proton-vpn-view p{margin:8px 0}"
+            return h("div", { attrs: { id: "proton-vpn-view" } }, [
+                h("style", "#proton-vpn-view{padding:20px 0;font-family:inherit;color:var(--text-regular,#141427)}#proton-vpn-view p{margin:8px 0}"
                     + "#proton-vpn-view .proton-icon{display:inline-block;margin-right:6px;font-size:14px;line-height:1;vertical-align:-1px}"
-                    + "#proton-vpn-view h2 .proton-icon{margin-right:10px;font-size:20px;color:var(--primary,#5272f7)}"
                     + "#proton-vpn-view .proton-status,#proton-vpn-view .proton-actions,#proton-vpn-view .proton-footer{display:flex;align-items:center;gap:10px;flex-wrap:wrap}"
                     + "#proton-vpn-view .proton-status{justify-content:space-between;margin-bottom:12px;padding:8px 10px;border-radius:4px;background:var(--background-subtitle,#f2f2f7)}"
                     + "#proton-vpn-view .proton-status a{font-size:13px;color:var(--text-button,#5272f7)}"
@@ -271,15 +269,15 @@
                     + "#proton-vpn-view .proton-location-row{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}"
                     + "#proton-vpn-view button{margin:0}#proton-vpn-view .proton-actions{margin:12px 0 0}#proton-vpn-view .proton-account{margin-bottom:16px}"
                     + "#proton-vpn-view .proton-advanced{font-size:13px}#proton-vpn-view summary{cursor:pointer}#proton-vpn-view .proton-advanced .proton-field{max-width:340px;margin-top:8px}"
-                    + "#proton-vpn-view>.footer{height:auto;min-height:50px;padding:10px 20px}"
+                    + "#proton-vpn-view .proton-card>.footer{height:auto;min-height:50px;padding:10px 20px}"
                     + "#proton-vpn-view .proton-footer{width:100%;justify-content:space-between;font-size:12px}#proton-vpn-view .proton-meta{display:flex;gap:12px;flex-wrap:wrap;color:var(--text-subtitle,#555557)}"
                     + "#proton-vpn-view .proton-warning{padding:8px;background:#fff3cd;color:#594300;font-size:13px}#proton-vpn-view .proton-error{color:#b00020}"
                     + "#proton-vpn-view .proton-connected{color:#15803d}"
-                    + "@media(max-width:540px){#proton-vpn-view{width:calc(100% - 16px);margin:8px}#proton-vpn-view .proton-location-row{grid-template-columns:1fr;gap:0}}"),
-                h("h2", { slot: "title" }, [icon("iconfont icon-shield-regular-full"), "Proton VPN"]),
-                this.info.authenticated ? h("span", { slot: "header" }, [
-                    button("Sign out", this.logout, this.updating, "logout")
-                ]) : null,
+                    + "@media(max-width:540px){#proton-vpn-view .proton-location-row{grid-template-columns:1fr;gap:0}}"),
+                h("gl-title", { attrs: { title: "Proton VPN" } }, [
+                    this.info.authenticated ? button("Sign out", this.logout, this.updating, "logout") : null
+                ]),
+                h("gl-card", { class: "proton-card" }, [
                 account,
                 h("div", { class: "proton-status" }, [
                     h("span", { class: { "proton-connected": connected }, attrs: { "data-testid": "connection-status",
@@ -333,8 +331,9 @@
                     "Working...") : null,
                 this.notice ? h("p", { attrs: { role: "status" } }, this.notice) : null,
                 this.error ? h("p", { class: "proton-error", attrs: { role: "alert", "data-testid": "error" } }, this.error) : null,
-                this.info.authenticated || this.info.last_handshake || this.catalogError ? h("footer", { slot: "footer", class: "proton-footer" }, [
+                h("footer", { slot: "footer", class: "proton-footer" }, [
                     h("div", { class: "proton-meta" }, [
+                        this.info.version ? h("span", { attrs: { "data-testid": "version" } }, "Version " + this.info.version) : null,
                         this.info.authenticated && this.catalog ? h("span", { attrs: { "data-testid": "catalog-age" } },
                             "Catalogue updated " + new Date(this.catalog.fetched_at * 1000).toLocaleString([], {
                                 month: "short", day: "numeric", hour: "2-digit", minute: "2-digit"
@@ -348,8 +347,8 @@
                         this.updating, "countries") : null,
                     this.catalogError ? h("p", { class: "proton-error", attrs: { "data-testid": "catalog-error" } },
                         "Refresh failed; saved locations remain available. " + this.catalogError) : null
-                ]) : null
-            ]);
+                ])
+            ])]);
         }
     };
 }())
