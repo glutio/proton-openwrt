@@ -34,10 +34,14 @@ router's default **Lua 5.1**, whose installed ubus module cannot load in 5.4.
 
 ## Install
 
-Follow **[INSTALL.md](INSTALL.md)** for the complete CLI and native web-page
-installation, dependencies, first-tunnel setup, factory-reset recovery,
-updates, removal and troubleshooting. Installers refuse existing entry points;
-do not rerun fresh-install commands over a working installation.
+On the router over SSH (install or update):
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/glutio/proton-openwrt/main/get.sh | sh
+```
+
+Then open **VPN -> Proton VPN** in the admin panel and sign in. See
+**[INSTALL.md](INSTALL.md)** for first-tunnel setup, removal and troubleshooting.
 
 ## Optional GL.iNet web page
 

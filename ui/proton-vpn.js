@@ -48,6 +48,9 @@
                 return "Existing VPN: " + c.name + (!c.enabled ? " (disabled)" : this.isConnected ? " (connected)" : " (transitioning)");
             }
         },
+        watch: {
+            isConnected: function (now) { if (now && this.notice.indexOf("Connection requested") === 0) this.notice = ""; }
+        },
         mounted: async function () {
             this.alive = true;
             await this.refresh();
