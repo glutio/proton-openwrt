@@ -111,7 +111,7 @@ placeholders, not literal payload content.
 The CLI's library also defines `GET /vpn/v1/loads` and newer v2/binary-status
 discovery. This small client retains the verified complete v1 endpoint instead
 of implementing Proton's newer v2/binary-status protocol. The web UI now has a
-separate five-minute metadata cache; this does not change the upstream API,
+separate three-hour metadata cache; this does not change the upstream API,
 account endpoint or fresh connection-time validation. See `UI.md`.
 
 ### SRP login

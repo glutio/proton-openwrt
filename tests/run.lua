@@ -535,14 +535,14 @@ test("catalogue TTL serves stale data without locking and refresh failure preser
     assert(not Web.handle(state,"countries",{}).cache.stale)
     local saved=state.data["catalog.json"]
     Store.lock=function() error("another client is using this state directory") end
-    now=1299
+    now=11799
     assert(not Web.handle(state,"countries",{}).cache.stale)
-    now=1300
+    now=11800
     assert(Web.handle(state,"countries",{}).cache.stale)
     assert(Web.handle(state,"refresh_catalog",{}).busy)
     now=999
     assert(Web.handle(state,"countries",{}).cache.stale)
-    now=1400
+    now=11900
     Store.lock=function() end
     Client.discover=function() error("upstream unavailable") end
     fails(function() Web.handle(state,"refresh_catalog",{}) end,"upstream")

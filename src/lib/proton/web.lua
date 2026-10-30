@@ -42,8 +42,8 @@ end
 
 local function cache_info(value)
     local now = os.time()
-    return { fetched_at = value.fetched_at, expires_at = value.fetched_at + 300,
-        stale = now < value.fetched_at or now >= value.fetched_at + 300 }
+    return { fetched_at = value.fetched_at, expires_at = value.fetched_at + 10800,
+        stale = now < value.fetched_at or now >= value.fetched_at + 10800 } -- 3 h, as upstream logicals.py
 end
 
 local function save_catalog(state, discovered)

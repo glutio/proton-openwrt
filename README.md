@@ -52,7 +52,7 @@ Then open **VPN -> Proton VPN** in the admin panel and sign in. See
 The additive **VPN -> Proton VPN** page reuses the saved account session and
 native connection manager. It supports login/TOTP, logout, progressive country /
 city / node browsing, search, connect/switch, disconnect and restoration without
-manual imports. A five-minute account-scoped catalogue cache makes browsing
+manual imports. A three-hour account-scoped catalogue cache makes browsing
 independent of background refreshes.
 No vendor JavaScript bundles are patched. See [INSTALL.md](INSTALL.md) for setup
 and [UI.md](docs/UI.md) for the provider-card limitation, HTTP precautions and verification.
@@ -149,7 +149,7 @@ them. Lua cannot guarantee that secret strings are erased from memory.
 HTTP request/response secrets are not logged or passed to subprocess arguments.
 CLI discovery remains fresh and on demand. The web page stores only allowlisted
 location/load/tier metadata and its session UID in private `catalog.json`,
-with a five-minute TTL. Stale locations remain browsable during refresh.
+with a three-hour TTL (as the official client); use Refresh catalogue for current loads. Stale locations remain browsable during refresh.
 Logout or rejected refresh credentials invalidate that cache; connecting
 still checks live entitlement and endpoint availability.
 

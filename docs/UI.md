@@ -131,7 +131,7 @@ Cache access requires a saved VPN-scope session with the same UID. Logout
 (including CLI logout) or rejected refresh credentials remove it; a different
 session cannot reuse it. Web login reuses its initial discovery to populate it.
 
-`cache` contains Unix `fetched_at`, `expires_at` (fetch + 300 seconds), and
+`cache` contains Unix `fetched_at`, `expires_at` (fetch + 3 hours), and
 `stale`. Clock rollback also makes the cache stale. Fresh and stale reads do
 not acquire the account lock or call Proton. Stale data is rendered first;
 the browser then issues a separate `refresh_catalog` request. It rechecks
