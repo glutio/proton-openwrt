@@ -272,12 +272,18 @@
                     + "#proton-vpn-view .proton-card>.footer{height:auto;min-height:50px;padding:10px 20px}"
                     + "#proton-vpn-view .proton-footer{width:100%;justify-content:space-between;font-size:12px}#proton-vpn-view .proton-meta{display:flex;gap:12px;flex-wrap:wrap;color:var(--text-subtitle,#555557)}"
                     + "#proton-vpn-view .proton-warning{padding:8px;background:#fff3cd;color:#594300;font-size:13px}#proton-vpn-view .proton-error{color:#b00020}"
-                    + "#proton-vpn-view .proton-connected{color:#15803d}"
+                    + "#proton-vpn-view .proton-connected{color:#15803d}#proton-vpn-view .proton-card{position:relative}"
+                    + "#proton-vpn-view .proton-overlay{position:absolute;inset:0;z-index:10;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;border-radius:inherit;background:rgba(255,255,255,.8);font-size:16px;font-weight:500;color:var(--text-title,#1f1f3d);animation:proton-fade .2s .4s both}"
+                    + "#proton-vpn-view .proton-overlay i{font-size:32px;color:var(--primary,#5272f7)}@keyframes proton-fade{from{opacity:0}to{opacity:1}}"
                     + "@media(max-width:540px){#proton-vpn-view .proton-location-row{grid-template-columns:1fr;gap:0}}"),
                 h("gl-title", { attrs: { title: "Proton VPN" } }, [
                     this.info.authenticated ? button("Sign out", this.logout, this.updating, "logout") : null
                 ]),
                 h("gl-card", { class: "proton-card" }, [
+                this.busy || this.updating ? h("div", { class: "proton-overlay", attrs: { role: "status", "data-testid": "overlay" } }, [
+                    h("i", { class: "el-icon-loading" }),
+                    this.updating ? "Refreshing the server list from Proton..." : this.notice || "Working..."
+                ]) : null,
                 account,
                 h("div", { class: "proton-status" }, [
                     h("span", { class: { "proton-connected": connected }, attrs: { "data-testid": "connection-status",
@@ -327,8 +333,6 @@
                         this.updating || !this.info.managed || !this.info.connection || !this.info.connection.enabled, "disconnect"),
                     button("Restore original VPN", this.restore, this.updating || !this.info.restore_available, "restore")
                 ]),
-                this.busy ? h("p", { attrs: { "data-testid": "busy" } },
-                    "Working...") : null,
                 this.notice ? h("p", { attrs: { role: "status" } }, this.notice) : null,
                 this.error ? h("p", { class: "proton-error", attrs: { role: "alert", "data-testid": "error" } }, this.error) : null,
                 h("footer", { slot: "footer", class: "proton-footer" }, [
@@ -340,8 +344,6 @@
                             })) : null,
                         this.info.last_handshake ? h("span", "Handshake " + new Date(this.info.last_handshake * 1000)
                             .toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })) : null,
-                        this.updating ? h("span", { attrs: { role: "status", "data-testid": "catalog-refresh" } },
-                            "Refreshing...") : null
                     ]),
                     this.info.authenticated ? button("Refresh catalogue", () => self.refreshCatalog(true),
                         this.updating, "countries") : null,
