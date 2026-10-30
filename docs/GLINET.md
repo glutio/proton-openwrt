@@ -7,8 +7,8 @@ internal vendor interfaces, not a promised cross-version public API.
 
 The integration adds only:
 
-- `lib/proton/glinet.lua`: procedural import, connect, disconnect, status, restore.
-- `gl_rpc.lua`: a Lua 5.1 subprocess for the already installed ubus binding.
+- `src/lib/proton/glinet.lua`: procedural import, connect, disconnect, status, restore.
+- `src/gl_rpc.lua`: a Lua 5.1 subprocess for the already installed ubus binding.
 - `profile.native`: independent persistent registrations cached per server.
 
 The Proton client remains Lua 5.4. No HTTP administrator login, new daemon,

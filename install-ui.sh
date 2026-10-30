@@ -14,10 +14,10 @@ for path in /usr/share/oui/menu.d/proton-vpn.json \
     test ! -e "$path" || { echo "Refusing to overwrite $path" >&2; exit 1; }
 done
 lua -e 'require("cjson.safe"); assert(loadfile("ui/rpc.lua")); assert(loadfile("ui/validator.lua"))'
-lua5.4 -e 'assert(loadfile("web_worker.lua")); assert(loadfile("lib/proton/web.lua"))'
+lua5.4 -e 'assert(loadfile("src/web_worker.lua")); assert(loadfile("src/lib/proton/web.lua"))'
 nginx -t
-cp lib/proton/glinet.lua lib/proton/web.lua /usr/lib/proton-openwrt/lib/proton/
-cp cli.lua web_worker.lua /usr/lib/proton-openwrt/
+cp src/lib/proton/glinet.lua src/lib/proton/web.lua /usr/lib/proton-openwrt/lib/proton/
+cp src/cli.lua src/web_worker.lua /usr/lib/proton-openwrt/
 cp remove-ui.sh /usr/lib/proton-openwrt/
 cp ui/rpc.lua /usr/lib/oui-httpd/rpc/proton-vpn
 cp ui/validator.lua /usr/share/gl-validator.d/proton-vpn.lua

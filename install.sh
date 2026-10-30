@@ -17,9 +17,9 @@ if [ -e /usr/bin/proton-openwrt ] || [ -L /usr/bin/proton-openwrt ]; then
 fi
 mkdir -m 755 /usr/lib/proton-openwrt
 mkdir -m 755 /usr/lib/proton-openwrt/lib /usr/lib/proton-openwrt/bin
-cp -R lib/proton /usr/lib/proton-openwrt/lib/
-cp cli.lua gl_rpc.lua /usr/lib/proton-openwrt/
-cp bin/proton-openwrt /usr/lib/proton-openwrt/bin/
+cp -R src/lib/proton /usr/lib/proton-openwrt/lib/
+cp src/cli.lua src/gl_rpc.lua /usr/lib/proton-openwrt/
+cp src/bin/proton-openwrt /usr/lib/proton-openwrt/bin/
 chmod 755 /usr/lib/proton-openwrt/bin/proton-openwrt
 ln -s /usr/lib/proton-openwrt/bin/proton-openwrt /usr/bin/proton-openwrt
 echo "Installed. No GL.iNet network or VPN configuration was changed."

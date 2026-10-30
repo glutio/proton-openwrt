@@ -8,7 +8,7 @@ On the router, from a staged source copy:
 
 ```sh
 cd /tmp/proton-openwrt
-lua5.4 -e 'package.path="./lib/?.lua;"..package.path;dofile("tests/run.lua")'
+lua5.4 -e 'package.path="./src/lib/?.lua;"..package.path;dofile("tests/run.lua")'
 lua tests/rpc.lua
 sh tests/worker.sh
 ```

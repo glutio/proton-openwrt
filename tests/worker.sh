@@ -3,9 +3,9 @@ set -eu
 input=$(mktemp /tmp/proton-web.XXXXXX)
 target=$(mktemp /tmp/proton-worker-target.XXXXXX)
 trap 'rm -f "$input" "$target"' 0 1 2 15
-export PROTON_ROOT="$PWD"
+export PROTON_ROOT="$PWD/src"
 printf '{}' > "$input"
-test "$(lua5.4 web_worker.lua status "$input")" = ready
+test "$(lua5.4 src/web_worker.lua status "$input")" = ready
 lua - "$input" <<'LUA'
 local f=assert(io.open(arg[1]));local r=require("cjson").decode(f:read("*a"));f:close()
 assert(type(r.authenticated)=="boolean")
@@ -14,7 +14,7 @@ LUA
 printf 'unchanged' > "$target"
 rm -f "$input"
 ln -s "$target" "$input"
-if lua5.4 web_worker.lua status "$input"; then
+if lua5.4 src/web_worker.lua status "$input"; then
     echo "Worker accepted a symlink." >&2; exit 1
 fi
 test "$(cat "$target")" = unchanged
@@ -30,7 +30,7 @@ require("proton.web").handle=function()
     return {checked=true}
 end
 arg={"test",input}
-dofile("web_worker.lua")
+dofile("src/web_worker.lua")
 LUA
 test "$(cat "$target")" = unchanged
 echo "PASS: worker response, symlink refusal and held descriptor after filename replacement"

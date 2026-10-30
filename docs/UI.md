@@ -22,7 +22,7 @@ patching vendor bundles, compiled modules, or other providers:
 | `ui/menu.json` | Additive `/usr/share/oui/menu.d/proton-vpn.json` |
 | `ui/proton-vpn.js` | Vue 2 render component, `/www/views/gl-sdk4-ui-proton-vpn.common.js` and `.gz` |
 | `ui/rpc.lua`, `ui/validator.lua` | Authenticated module `/usr/lib/oui-httpd/rpc/proton-vpn` and its validator |
-| `web_worker.lua`, `lib/proton/web.lua` | Private request transport, validation, public-data allowlists and calls to the existing backend |
+| `src/web_worker.lua`, `src/lib/proton/web.lua` | Private request transport, validation, public-data allowlists and calls to the existing backend |
 | `install-ui.sh`, `remove-ui.sh` | Installation/removal; no VPN restart |
 
 Installed authorities:
@@ -164,7 +164,7 @@ Proton state uses the existing private store and exclusive mutation lock.
 
 ## Installation
 
-Use **[INSTALL.md](INSTALL.md)** for the single installation, update, removal
+Use **[INSTALL.md](../INSTALL.md)** for the single installation, update, removal
 and factory-reset recovery procedure. The backend must be installed before
 the web addon. Both installers use the same staged source archive.
 
@@ -180,7 +180,7 @@ On the staged router source:
 
 ```sh
 cd /tmp/proton-openwrt
-lua5.4 -e 'package.path="./lib/?.lua;"..package.path;dofile("tests/run.lua")'
+lua5.4 -e 'package.path="./src/lib/?.lua;"..package.path;dofile("tests/run.lua")'
 lua tests/rpc.lua
 sh tests/worker.sh
 sh -n install-ui.sh

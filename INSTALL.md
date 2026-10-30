@@ -73,7 +73,7 @@ backup that includes it like a password, and never attach it to issues.
 Copy the source to the router (for example `scp -O` a `git archive` tarball),
 extract it into a temporary directory, and run `sh install.sh && sh install-ui.sh`.
 Both installers refuse to overwrite an existing installation; `get.sh` handles
-updates. Exact dependency versions are in [dependencies.txt](dependencies.txt).
+updates. Exact dependency versions are in [dependencies.txt](docs/dependencies.txt).
 
 ## Troubleshooting
 

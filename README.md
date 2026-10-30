@@ -16,6 +16,10 @@ existing dashboard, policies, and kill switch.
 
 ## Components and dependencies
 
+Layout: `src/` mirrors the installed `/usr/lib/proton-openwrt` (modules in
+`src/lib/proton`), `ui/` holds the web page and its RPC plugin, `docs/` the
+protocol and integration notes, and `tests/` the test suites.
+
 The minimum components are:
 
 - `http.lua`: pinned HTTPS using the installed libcurl.
@@ -28,7 +32,7 @@ The minimum components are:
 
 No classes, factories, web framework, native build, or extra daemon.
 All runtime dependencies are already installed on the tested router.
-See [dependencies.txt](dependencies.txt) for exact versions and probes.
+See [dependencies.txt](docs/dependencies.txt) for exact versions and probes.
 The API client uses **Lua 5.4**. Only the small native ubus helper uses the
 router's default **Lua 5.1**, whose installed ubus module cannot load in 5.4.
 
@@ -51,7 +55,7 @@ city / node browsing, search, connect/switch, disconnect and restoration without
 manual imports. A five-minute account-scoped catalogue cache makes browsing
 independent of background refreshes.
 No vendor JavaScript bundles are patched. See [INSTALL.md](INSTALL.md) for setup
-and [UI.md](UI.md) for the provider-card limitation, HTTP precautions and verification.
+and [UI.md](docs/UI.md) for the provider-card limitation, HTTP precautions and verification.
 
 ## Use
 
@@ -107,7 +111,7 @@ deleting the original-connection snapshot. `restore` remains available afterward
 
 Restoration does not require a Proton API session. `connect`/`restore` acknowledge
 a native connection **request**, not a verified handshake. See
-[GLINET.md](GLINET.md) for native contracts, recovery, and connectivity checks.
+[GLINET.md](docs/GLINET.md) for native contracts, recovery, and connectivity checks.
 
 Web sign-in verifies the server's SRP proof, completes TOTP if required, saves
 the session, and then performs authenticated discovery. If sign-in succeeds but
@@ -160,7 +164,7 @@ deterministic test data, not account credentials.
 
 ```sh
 cd /tmp/proton-openwrt
-LUA_PATH='/tmp/proton-openwrt/lib/?.lua;;' lua5.4 tests/run.lua
+LUA_PATH='/tmp/proton-openwrt/src/lib/?.lua;;' lua5.4 tests/run.lua
 ```
 
 The tests cover signed-modulus verification, SRP client/server proofs, password
@@ -177,9 +181,9 @@ python -m venv .venv
 .\.venv\Scripts\python tests\oracle.py | Set-Content -Encoding utf8NoBOM tests\oracle.json
 ```
 
-See [TESTING.md](TESTING.md) for live validation and limitations.
+See [TESTING.md](docs/TESTING.md) for live validation and limitations.
 API details and exact upstream functions are in
-[PROTOCOL.md](PROTOCOL.md).
+[PROTOCOL.md](docs/PROTOCOL.md).
 
 ## License
 
