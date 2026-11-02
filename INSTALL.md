@@ -79,7 +79,7 @@ updates. Exact dependency versions are in [dependencies.txt](docs/dependencies.t
 
 | Symptom | Action |
 |---|---|
-| `lua5.4`/`ffi`/`libcurl.so.4` check fails | Unsupported firmware; install only the missing package from GL.iNet's own feed (`opkg update; opkg install lua-ffi-lua5.4`), never generic OpenWrt feeds. |
+| `lua5.4`/`ffi`/`curl` check fails | Unsupported firmware; install only the missing package from GL.iNet's own feed (for example `lua-ffi-lua5.4` for missing FFI, or `curl` for the missing command), never generic OpenWrt feeds. |
 | Proton menu missing | Fully reload the admin panel. |
 | TLS or sign-in fails | Check router time and internet. Human verification (CAPTCHA) is not supported. |
 | "Choose an existing WireGuard tunnel" | Create the first tunnel as described above. |

@@ -13,7 +13,7 @@ lua tests/rpc.lua
 sh tests/worker.sh
 ```
 
-`tests/run.lua` (**30 tests**, Lua 5.4) uses mocks only; it never logs in,
+`tests/run.lua` (**32 tests**, Lua 5.4) mocks HTTP and native RPC; it never logs in,
 registers keys or switches VPNs. Coverage: strict base64, signed-modulus
 verification, deterministic SRP (ASCII/UTF-8/long passwords) checked against an
 independent Python/bcrypt oracle, unsafe SRP challenge rejection, TOTP scope
@@ -21,8 +21,9 @@ promotion and FIDO2-only rejection, single refresh/replay, API errors and rate
 limits, server eligibility filtering, Ed25519/WireGuard keys, per-server
 registration, lost-registration recovery and renewal, native import/readback,
 edited-profile refusal, switching and restoring the original fallback list,
-handoff readiness, catalogue cache TTL/isolation, web input validation and
-private storage/locking.
+handoff readiness, catalogue cache TTL/isolation, web input validation, curl
+config escaping (no secrets in argv), response parsing, bounded reads,
+transport-error redaction, and private storage/locking.
 
 `tests/rpc.lua` covers the Lua 5.1 RPC transport. `tests/worker.sh` checks
 the worker's request/response file and input path check.

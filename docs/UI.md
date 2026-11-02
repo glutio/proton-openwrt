@@ -56,10 +56,10 @@ load percentages reflect the displayed catalogue age. Existing registrations/nat
 reused. The optional tunnel ID resolves installations with multiple tunnels.
 The existing VPN Dashboard displays the active **Proton CLI** group/profile.
 
-The compact layout keeps Sign out beside the title, country/city on one row,
+The native title sits above the card, with Sign out beside it; country/city stay on one row,
 and connection actions together below the node list. Optional tunnel selection
 is under Advanced. Catalogue controls and a static last-update timestamp live
-in the footer; no elapsed-seconds counter is displayed.
+in the footer alongside the installed version; no elapsed-seconds counter is displayed.
 The node list shows 12 rows, and connected status is green.
 The panel reuses the firmware's native card, inherited font, theme colors and
 locally installed icon fonts. Icons are decorative; button and field labels
@@ -139,8 +139,9 @@ freshness under the existing exclusive lock before fetching, preventing
 duplicate refreshes. The refresh button sends `{force:true}`. No timer
 downloads catalogues: refresh is lazy on stale browsing/page opening or explicit.
 
-The footer shows a static fetch date/time, background progress and refresh errors;
-saved selectors remain usable while refresh runs. Successful refresh queues
+The footer shows a static fetch date/time and refresh errors. A loading overlay
+over the card explains that the server list is refreshing and blocks pointer
+interaction while it runs; saved selections are retained. Successful refresh queues
 list updates on the next five-second status poll, preserving valid selections
 and search. Transient fetch failures retain the previous cache without extending
 its TTL. Connect always uses fresh entitlement/physical-endpoint validation,
@@ -158,6 +159,7 @@ it before authentication, writes the JSON response to the same file, and prints
 only a small completion marker. This handles the full US list without carrying
 it on the vendor command proxy's stdout. The RPC side removes the file.
 Cosocket operations stay outside Lua 5.1 `pcall`, which cannot yield here.
+The worker starts with `umask 077` so new state files are `0600`.
 Proton state uses the existing private store and exclusive mutation lock.
 
 ## Installation

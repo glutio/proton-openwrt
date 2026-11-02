@@ -22,7 +22,7 @@ protocol and integration notes, and `tests/` the test suites.
 
 The minimum components are:
 
-- `http.lua`: pinned HTTPS using the installed libcurl.
+- `http.lua`: pinned HTTPS through the firmware's `curl` command.
 - `crypto.lua`, `modulus.lua`, `srp.lua`: OpenSSL/musl-backed Proton authentication.
 - `store.lua`: private files and locking.
 - `client.lua`, `servers.lua`: authenticated API and endpoint selection.
@@ -33,8 +33,8 @@ The minimum components are:
 No classes, factories, web framework, native build, or extra daemon.
 All runtime dependencies are already installed on the tested router.
 See [dependencies.txt](docs/dependencies.txt) for exact versions and probes.
-The API client uses **Lua 5.4**. Only the small native ubus helper uses the
-router's default **Lua 5.1**, whose installed ubus module cannot load in 5.4.
+The API client uses **Lua 5.4**. The native ubus helper and web RPC plugin use
+the router's default **Lua 5.1**, whose installed ubus module cannot load in 5.4.
 
 ## Install
 
@@ -139,7 +139,9 @@ WireGuard keys; those require separate cleanup in Proton and GL.iNet.
 ## Storage and failure handling
 
 State is under `/etc/proton-openwrt`, a root-only directory (mode `0700`).
-Writes go to a temporary file and are renamed into place. A nonblocking `flock`
+The CLI and web worker use `umask 077` so new files are `0600`.
+Writes go to a temporary file and are renamed into place; they are not fsynced,
+so a power loss can lose recent state. A nonblocking `flock`
 serializes CLI invocations and refresh-token rotation.
 
 Tokens/private keys are plaintext protected by filesystem permissions, not
@@ -169,7 +171,8 @@ LUA_PATH='/tmp/proton-openwrt/src/lib/?.lua;;' lua5.4 tests/run.lua
 The tests cover signed-modulus verification, SRP client/server proofs, password
 truncation/UTF-8, TOTP/scopes, token rotation, API errors, server filtering,
 native registration, import/readback, switching/restoration, and private
-storage. They use mock responses, not real logins or certificate creation.
+storage, curl config escaping and HTTP response/error handling. They use mock
+responses, not real logins or certificate creation.
 
 Optionally regenerate the independent Python/bcrypt vectors on a development
 machine; Python is **not** a router dependency:
@@ -208,6 +211,6 @@ MIT; see [LICENSE](LICENSE).
   value triggered human verification at login. Proton may block or change this.
 - The web sign-in form sends your Proton password to the router; over plain
   HTTP it is not encrypted on the LAN.
-- The FFI filesystem bindings target the verified aarch64 musl ABI.
-  Other architectures/firmwares are unverified. Only the native ubus helper
-  supports Lua 5.1.
+- The FFI bindings (OpenSSL, musl crypt, open/flock) target the verified aarch64 musl ABI.
+  Other architectures/firmwares are unverified. The native ubus helper and web
+  RPC plugin use Lua 5.1; the API client requires Lua 5.4.

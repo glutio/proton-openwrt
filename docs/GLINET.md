@@ -121,7 +121,7 @@ settings are omitted deliberately, rather than replaying potentially stale
 copies. The vendor UI also makes partial `set_tunnel` requests for switches
 and tunnel options.
 
-Before the first change, `gl-restore.json` durably saves the original
+Before the first change, `gl-restore.json` saves the original
 `tunnel_id`, `enabled`, and full `via.configs` list, including fallback profiles.
 Further server switches do not overwrite that snapshot. `restore` sends those
 fields back through the same API and clears the snapshot only after an

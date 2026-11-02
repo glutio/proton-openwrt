@@ -627,6 +627,45 @@ test("web login preserves existing sessions and permits password punctuation and
     assert(err.kind=="totp_required")
 end)
 
+test("HTTPS keeps secrets out of curl argv and parses interim responses", function()
+    local command, config
+    io.popen = function(cmd)
+        command = cmd
+        local f = assert(io.open(cmd:match("%-K (%S+)"))); config = f:read("a"); f:close()
+        return { read = function() return "HTTP/1.1 100 Continue\r\n\r\n"
+                .. "HTTP/2 429\r\ncontent-type: application/json\r\nretry-after: 7\r\n\r\n{\"Code\":2028}" end,
+            close = function() return true end }
+    end
+    local status, body, retry = Http.request("POST", "/auth", { Password = 'p"w\\' },
+        { UID = "uid", AccessToken = "secret-token" })
+    assert(status == 429 and body.Code == 2028 and retry == "7")
+    assert(not command:find("secret", 1, true) and not command:find("p\"w", 1, true))
+    assert(config:find('header = "Authorization: Bearer secret-token"', 1, true))
+    assert(config:find('data-binary = "{\\"Password\\":\\"p\\\\\\"w\\\\\\\\\\"}"', 1, true))
+    assert(not io.open(command:match("%-K (%S+)")), "curl config not removed")
+    fails(function() Http.request("GET", "/vpn", nil, { UID = "u\r\nX: y", AccessToken = "t" }) end)
+end)
+
+test("HTTPS rejects failed, oversized and non-JSON transfers without exposing bodies", function()
+    local path, response, success, exit = nil, "partial-secret-response", nil, 18
+    io.popen = function(cmd)
+        path = cmd:match("%-K (%S+)")
+        return { read = function(_, limit)
+                assert(limit == 32 * 1024 * 1024 + 1)
+                return response
+            end,
+            close = function() return success, "exit", exit end }
+    end
+    local err = fails(function() Http.request("GET", "/vpn/v2") end, "exit 18")
+    assert(not tostring(err):find(response, 1, true) and not io.open(path))
+    response, success = string.rep("x", 32 * 1024 * 1024 + 1), true
+    fails(function() Http.request("GET", "/vpn/v2") end, "exceeds 32 MiB")
+    assert(not io.open(path))
+    response = "HTTP/2 200\r\ncontent-type: application/jsonp\r\n\r\n{\"Code\":1000}"
+    fails(function() Http.request("GET", "/vpn/v2") end, "non%-JSON")
+    assert(not io.open(path))
+end)
+
 test("private state replaces files, locks, and rejects unsafe names", function()
     local path = "/tmp/proton-test-" .. crypto.hex(crypto.random(8))
     local first = Store.open(path); Store.lock(first)

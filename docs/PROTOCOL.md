@@ -81,10 +81,17 @@ The upstream optional `x-pm-locale`, `x-pm-timezone`, and discovery
 `X-PM-netzone` headers are not required here and are omitted. No username,
 password, or refresh token is sent in a URL.
 
-CA/hostname verification stays enabled, **plus** libcurl's SPKI SHA-256 pin
+CA/hostname verification stays enabled, **plus** curl's `--pinnedpubkey` SPKI SHA-256 pin
 check against the three production hashes in `ProdEnvironment`. There are no
 redirects, insecure mode, alternate API hosts, or proxy/pinning fallbacks.
 Pin rotation requires reviewing/updating the upstream pins.
+
+Requests run the firmware's `curl` command. The URL, headers (including the
+bearer token) and JSON body are written to a `0600` `os.tmpname` file passed
+as `curl -q -K <file>` and deleted afterwards, so secrets never appear in the
+process list; `-q` ignores any `.curlrc`. Lua caps captured output (headers and
+body) at 32 MiB, including responses without a declared size; curl's
+`--max-filesize` also rejects a declared body size above that limit.
 
 The transport accepts JSON media types with optional parameters and requires a
 JSON object with numeric `Code`. Both HTTP 2xx **and** `Code` 1000/1001 are
@@ -147,8 +154,10 @@ the application does not implement its own big-integer arithmetic.
 
 The initial `Scopes` may contain `twofactor`: that token is authenticated but
 **not ready for VPN resources**. If the `2FA.Enabled` bitmask includes TOTP
-(bit 1), read six digits from the terminal and POST `/auth/2fa` with that
-session's UID/access token. Replace scopes with the returned list.
+(bit 1), use the six-digit code submitted with the web sign-in form and POST
+`/auth/2fa` with that session's UID/access token. Replace scopes with the
+returned list. A missing code requires resubmitting the sign-in form; the CLI
+does not prompt for credentials.
 
 Require `vpn` and reject remaining `twofactor` before discovery/registration.
 Do not infer authorization merely from the existence of an access token.

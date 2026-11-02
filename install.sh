@@ -6,7 +6,7 @@ test "$(id -u)" = 0 || { echo "Run as root." >&2; exit 1; }
 lua5.4 -e 'require("ffi"); require("cjson.safe")'
 lua -e 'require("ubus"); require("cjson")'
 test -r /usr/lib/libcrypto.so.1.1
-test -r /usr/lib/libcurl.so.4
+command -v curl >/dev/null
 if [ -e /usr/lib/proton-openwrt ]; then
     echo "/usr/lib/proton-openwrt already exists; refusing to overwrite." >&2
     exit 1
