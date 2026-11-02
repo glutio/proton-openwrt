@@ -1,11 +1,9 @@
-local ffi = require("proton.posix")
 local json = require("cjson.safe")
 local store = require("proton.store")
 local client = require("proton.client")
 local servers = require("proton.servers")
 local profile = require("proton.profile")
 local crypto = require("proton.crypto")
-ffi.cdef[[int mkstemp(char *);]]
 local M = {}
 
 local function quote(s)
@@ -13,27 +11,15 @@ local function quote(s)
 end
 
 function M.call(module, func, params)
-    local template = "/tmp/proton-rpc-XXXXXX"
-    local path = ffi.new("char[?]", #template + 1)
-    ffi.copy(path, template)
-    local fd = ffi.C.mkstemp(path)
-    assert(fd >= 0, "cannot create private RPC request")
-    path = ffi.string(path)
+    local path = os.tmpname() -- mkstemp: private 0600 file
     local ok, reply = pcall(function()
-        local body = assert(json.encode({ module = module, func = func, params = params or {} }))
-        local offset = 0
-        while offset < #body do
-            local n = tonumber(ffi.C.write(fd, body:sub(offset + 1), #body - offset))
-            assert(n > 0, "cannot write private RPC request")
-            offset = offset + n
-        end
-        ffi.C.close(fd)
-        fd = -1
+        local f = assert(io.open(path, "w"))
+        assert(f:write(assert(json.encode({ module = module, func = func, params = params or {} }))))
+        f:close()
         local root = os.getenv("PROTON_ROOT") or "/usr/lib/proton-openwrt"
         local pipe = assert(io.popen("lua " .. quote(root .. "/gl_rpc.lua") .. " < " .. quote(path), "r"))
         local text = pipe:read("*a")
-        local success = pipe:close()
-        assert(success, "local GL.iNet RPC helper failed")
+        assert(pipe:close(), "local GL.iNet RPC helper failed")
         local value = assert(json.decode(text), "invalid GL.iNet RPC response")
         if value.error then
             error("GL.iNet " .. module .. "." .. func .. " failed: "
@@ -42,12 +28,10 @@ function M.call(module, func, params)
         assert(value.result ~= nil, "missing GL.iNet RPC result")
         return value.result == json.null and {} or value.result
     end)
-    if fd >= 0 then ffi.C.close(fd) end
     os.remove(path)
     if not ok then error(reply, 0) end
     return reply
 end
-
 local function configs(group_id)
     return assert(M.call("wg-client", "get_config_list", { group_id = group_id }).peers,
         "missing native WireGuard profile list")

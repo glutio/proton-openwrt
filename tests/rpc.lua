@@ -1,17 +1,11 @@
 local json = require("cjson.safe")
 local rpc = dofile("ui/rpc.lua")
 local function test(reply)
-    local pipe = assert(io.popen("mktemp /tmp/proton-web.XXXXXX"))
-    local path = pipe:read("*l"); pipe:close()
-    local calls = 0
+    local path
     ngx = { pipe = { spawn = function(args)
         coroutine.yield()
-        calls = calls + 1
-        if calls == 1 then
-            assert(args[1] == "/bin/mktemp")
-            return { stdout_read_all = function() coroutine.yield(); return path .. "\n" end }
-        end
-        assert(args[1] == "/usr/bin/lua5.4" and args[3] == "login" and args[4] == path)
+        path = args[5]
+        assert(args[1] == "/bin/sh" and args[3]:find("umask 077", 1, true) and args[4] == "login" and path:match("^/tmp/lua_%w+$"))
         assert(not table.concat(args, " "):find("test-password", 1, true))
         local f = assert(io.open(path)); local request = assert(json.decode(f:read("*a"))); f:close()
         assert(request.password == "test-password")

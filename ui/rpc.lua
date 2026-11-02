@@ -8,18 +8,14 @@ end
 local function run(action, params)
     local body = json.encode(params or {})
     if not body or #body > 8192 then return failure("validating request") end
-    -- Cosocket calls cannot yield through pcall on this firmware's Lua 5.1.
-    local process = ngx.pipe.spawn({ "/bin/mktemp", "/tmp/proton-web.XXXXXX" })
-    if not process then return failure("creating private input") end
-    local path = process:stdout_read_all():match("^(/tmp/proton%-web%.%w+)%s*$")
-    if not path then return failure("creating private input") end
+    local path = os.tmpname() -- mkstemp: private 0600 file
     local file = io.open(path, "w")
     if not file then os.remove(path); return failure("opening private input") end
     local written = file:write(body)
     file:close()
     if not written then os.remove(path); return failure("writing private input") end
-    process = ngx.pipe.spawn({
-        "/usr/bin/lua5.4", "/usr/lib/proton-openwrt/web_worker.lua", action, path,
+    local process = ngx.pipe.spawn({ -- umask keeps state files private (nginx default is 022)
+        "/bin/sh", "-c", 'umask 077; exec /usr/bin/lua5.4 /usr/lib/proton-openwrt/web_worker.lua "$0" "$1"', action, path,
     }, { stdout_read_timeout = 180000 })
     if not process then os.remove(path); return failure("starting worker") end
     local receipt = process:stdout_read_all()

@@ -56,7 +56,7 @@ ubus call gl-session call \
 ```
 
 The adapter uses the Lua ubus binding, not command-line JSON. Requests are
-written to a random `mkstemp` file under `/tmp` (mode `0600`), supplied on the
+written to a random `os.tmpname` (mkstemp) file under `/tmp` (mode `0600`), supplied on the
 helper's stdin, and removed after the response. Keys are never process
 arguments, stdout from the CLI, or shell command text. This bridge requires
 local root access; no remotely reusable router administrator session is stored.

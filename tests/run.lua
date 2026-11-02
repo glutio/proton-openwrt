@@ -627,7 +627,7 @@ test("web login preserves existing sessions and permits password punctuation and
     assert(err.kind=="totp_required")
 end)
 
-test("private state is atomic, locked, and refuses public directories", function()
+test("private state replaces files, locks, and rejects unsafe names", function()
     local path = "/tmp/proton-test-" .. crypto.hex(crypto.random(8))
     local first = Store.open(path); Store.lock(first)
     Store.write(first, "test.json", { generation = 1 })
@@ -636,12 +636,12 @@ test("private state is atomic, locked, and refuses public directories", function
     local second = Store.open(path)
     fails(function() Store.lock(second) end, "another client")
     Store.close(second)
-    fails(function() Store.write(first, "../escape", {}) end)
+    fails(function() Store.write(first, "../escape", {}) end, "filename")
     Store.delete(first, "test.json")
     assert(Store.read(first, "test.json") == nil)
     Store.delete(first, "lock"); Store.close(first)
     assert(os.remove(path))
-    fails(function() Store.open("/tmp") end, "private")
 end)
+
 
 print(string.format("PASS: %d tests on %s", count, _VERSION))

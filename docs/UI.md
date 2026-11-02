@@ -126,7 +126,7 @@ always requests one city. Missing cities use the `Unspecified` bucket.
 The private `/etc/proton-openwrt/catalog.json` cache contains only the current
 session UID, fetch timestamp, and allowlisted name/country/city/load/tier/features fields.
 No API tokens, private keys, physical peer data or account response are cached
-there. The directory remains `0700`, file `0600`; successful writes are atomic.
+there. The directory remains `0700`, writes are renamed into place.
 Cache access requires a saved VPN-scope session with the same UID. Logout
 (including CLI logout) or rejected refresh credentials remove it; a different
 session cannot reuse it. Web login reuses its initial discovery to populate it.
@@ -152,13 +152,11 @@ times. Cached browsing remains available even then. Leaving the page stops
 recovery and prevents abandoned follow-up requests. The CLI's exclusive
 mutation locking is unchanged.
 
-Lua 5.1 RPC creates a root-private `mktemp` file, mode `0600`, and supplies only
-its path/action to Lua 5.4. The worker validates and holds the original file
-descriptor, truncates credential input before authentication, writes sanitized
-JSON through that descriptor, and prints only a small completion marker.
-This handles the full US list without carrying it on the vendor command
-proxy's stdout. Ordinary completion/error removes the file. The held descriptor
-prevents recreating/following a replaced filename after a timeout.
+Lua 5.1 RPC creates a private temporary file (`os.tmpname`, mode `0600`) and
+supplies only its path/action to Lua 5.4. The worker reads the request, erases
+it before authentication, writes the JSON response to the same file, and prints
+only a small completion marker. This handles the full US list without carrying
+it on the vendor command proxy's stdout. The RPC side removes the file.
 Cosocket operations stay outside Lua 5.1 `pcall`, which cannot yield here.
 Proton state uses the existing private store and exclusive mutation lock.
 

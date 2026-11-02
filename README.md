@@ -24,7 +24,7 @@ The minimum components are:
 
 - `http.lua`: pinned HTTPS using the installed libcurl.
 - `crypto.lua`, `modulus.lua`, `srp.lua`: OpenSSL/musl-backed Proton authentication.
-- `store.lua`, `posix.lua`: private files and locking.
+- `store.lua`: private files and locking.
 - `client.lua`, `servers.lua`: authenticated API and endpoint selection.
 - `profile.lua`: persistent per-server WireGuard key registration.
 - `glinet.lua`, `gl_rpc.lua`: native profile/tunnel APIs through the local ubus bridge.
@@ -138,10 +138,9 @@ WireGuard keys; those require separate cleanup in Proton and GL.iNet.
 
 ## Storage and failure handling
 
-State is under `/etc/proton-openwrt`: directory mode `0700`, files `0600`.
-Writes use exclusive temporary files, `fsync`, and atomic rename. A nonblocking
-file lock serializes CLI invocations and refresh-token rotation. Existing
-non-private files, wrong owners, and symlinks are refused.
+State is under `/etc/proton-openwrt`, a root-only directory (mode `0700`).
+Writes go to a temporary file and are renamed into place. A nonblocking `flock`
+serializes CLI invocations and refresh-token rotation.
 
 Tokens/private keys are plaintext protected by filesystem permissions, not
 hardware-encrypted. Root access, router backups, or flash extraction can expose

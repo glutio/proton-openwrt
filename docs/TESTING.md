@@ -22,10 +22,10 @@ limits, server eligibility filtering, Ed25519/WireGuard keys, per-server
 registration, lost-registration recovery and renewal, native import/readback,
 edited-profile refusal, switching and restoring the original fallback list,
 handoff readiness, catalogue cache TTL/isolation, web input validation and
-atomic private storage/locking.
+private storage/locking.
 
 `tests/rpc.lua` covers the Lua 5.1 RPC transport. `tests/worker.sh` checks
-private response-file handling and symlink refusal.
+the worker's request/response file and input path check.
 
 Frontend unit tests (development machine, Node.js):
 

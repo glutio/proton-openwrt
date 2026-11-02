@@ -40,8 +40,7 @@ Verification:
 - libc crypt with a fixed $2y$10$ setting: valid bcrypt result.
 - Constant-time OpenSSL BN, Ed25519 verification/key generation, X25519,
   SHA-256/SHA-512, and secure randomness: exercised by target tests.
-- FFI struct stat/openat/flock/fsync/rename: exercised by private-store tests.
-- tcgetattr/tcsetattr: verified through an actual SSH PTY and real login.
+- FFI open/flock/close: exercised by private-store tests.
 - libcurl HTTPS, CA validation, and production SPKI pin: exercised live.
 - No GnuPG executable is installed or needed; modulus verification handles
   only Proton's pinned, observed OpenPGP signature format.
@@ -61,9 +60,8 @@ gl-sdk4-ui-core           git-2026.264.27863-0a182fe-1
 gl-sdk4-ui-vpn-client     git-2026.244.40224-41efb95-1
 gl-sdk4-ui-vpndashboard   git-2026.264.09582-dfff471-1
 Lua 5.1 cjson.safe, OUI RPC/menu loader and ngx command proxy were exercised.
-/bin/mktemp creates mode0600 request files; /bin/gzip serves compressed views.
-The worker reuses the existing musl FFI open/fstat/read/write/close interfaces,
-plus ftruncate/lseek; no extra router library/package is required.
+Lua os.tmpname (mkstemp) creates mode 0600 request files; /bin/gzip serves
+compressed views. No extra router library/package is required.
 Browser-only development tooling: Node.js, installed Chrome, Playwright 1.64.1
 (tests/package-lock.json). No Playwright browser download is needed.
 Catalogue cache/progressive browsing adds no runtime dependency or daemon.
