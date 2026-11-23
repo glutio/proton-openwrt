@@ -77,6 +77,7 @@ profile and tunnel IDs are vendor-assigned integers.
 | `wg-client.add_group` | `{"group_name":"Proton CLI"}` | Acknowledgement; resolve the new ID through `get_group_list` |
 | `wg-client.get_config_list` | `{"group_id": GROUP_ID}` | `peers[]`, including `peer_id` and editable profile fields/private key; never print this response |
 | `wg-client.add_config` | Profile object below | Acknowledgement; verify stored fields/ID with `get_config_list` |
+| `vpn-client.add_tunnel` | `name`, default `from`/`to`, `via`, `enabled` | Acknowledgement; resolve the new ID through `get_tunnel`. Used only when no tunnel exists |
 | `vpn-client.get_tunnel` | `{}` | `tunnels[]`, `default_tunnels[]`, `global_enabled`, `max_tunnels` |
 | `vpn-client.set_tunnel` | `tunnel_id`, replacement `via`, `enabled` | Native update acknowledgement; not proof of a handshake |
 | `vpn-client.get_status` | `{}` | `status_list[]`: tunnel/group/peer IDs, name, interface, enabled/status, addresses, byte counters; `mode` |
@@ -141,8 +142,12 @@ proton-openwrt connect
 proton-openwrt restore
 ```
 
-Specify `connect TUNNEL_ID` if selection is ambiguous or the desired existing
-tunnel is disabled. A fresh tunnel/routing policy is not created.
+With no enabled WireGuard tunnel, a sole disabled one is reused and enabled.
+Specify `connect TUNNEL_ID` if selection is ambiguous (several enabled, or
+several disabled and none enabled). Only when no tunnel exists at all, the default
+one ("Tunnel 1", default source and destination) is created with
+`vpn-client.add_tunnel`, as GL.iNet's own **Start** does; `restore` then disables it.
+Existing tunnels' routing policies are never changed.
 
 The profiles appear in **VPN Client Profiles -> WireGuard -> Proton CLI**;
 the existing **VPN Dashboard** consumes the same native tunnel/status objects.

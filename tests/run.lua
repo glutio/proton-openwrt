@@ -411,6 +411,34 @@ test("native disconnect only disables the managed group and retains recovery and
     assert(changes==1 and state.data["gl-restore.json"]==original)
 end)
 
+test("native connect enables a sole disabled tunnel and creates the default one only when none exists", function()
+    local state = memory()
+    GL.prepare = function() return {server="US#1",group_id=42,peer_id=55} end
+    local tunnels, added = {{tunnel_id=7,enabled=false,via={type="wireguard",configs={{group_id=1,id_list={2}}}}}}, 0
+    GL.call = function(module, method, params)
+        assert(module=="vpn-client")
+        if method=="get_tunnel" then return {tunnels=tunnels} end
+        if method=="add_tunnel" then
+            added=added+1
+            assert(params.enabled==true and params.from.type=="default" and params.to.type=="default")
+            assert(params.via.configs[1].group_id==42 and params.via.configs[1].id_list[1]==55)
+            params.tunnel_id=3; tunnels[1]=params
+            return {}
+        end
+        assert(method=="set_tunnel" and params.tunnel_id==7 and params.enabled==true)
+        return {}
+    end
+    assert(GL.connect(state).tunnel_id==7 and added==0)
+    local restore=state.data["gl-restore.json"]
+    assert(restore.tunnel_id==7 and restore.enabled==false and restore.via.configs[1].group_id==1)
+    state.data["gl-restore.json"]=nil; tunnels={}
+    fails(function() GL.connect(state, 9) end, "no matching WireGuard")
+    assert(added==0 and not state.data["gl-restore.json"])
+    assert(GL.connect(state).tunnel_id==3 and added==1)
+    restore=state.data["gl-restore.json"]
+    assert(restore.tunnel_id==3 and restore.enabled==false)
+end)
+
 test("web status requires the intended kernel key and peer handshake and never returns secrets", function()
     local state = memory()
     state.data["session.json"]={AccessToken="SECRET_TOKEN",RefreshToken="SECRET_REFRESH"}

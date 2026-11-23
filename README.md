@@ -45,13 +45,13 @@ curl -fsSL https://raw.githubusercontent.com/glutio/proton-openwrt/main/get.sh |
 ```
 
 Then open **VPN -> Proton VPN** in the admin panel and sign in. See
-**[INSTALL.md](INSTALL.md)** for first-tunnel setup, removal and troubleshooting.
+**[INSTALL.md](INSTALL.md)** for setup, removal and troubleshooting.
 
 ## Optional GL.iNet web page
 
 The additive **VPN -> Proton VPN** page reuses the saved account session and
 native connection manager. It supports login/TOTP, logout, progressive country /
-city / node browsing, search, connect/switch, disconnect and restoration without
+city / server browsing, search, connect/switch, disconnect and restoration without
 manual imports. A three-hour account-scoped catalogue cache makes browsing
 independent of background refreshes.
 No vendor JavaScript bundles are patched. See [INSTALL.md](INSTALL.md) for setup
@@ -150,7 +150,7 @@ them. Lua cannot guarantee that secret strings are erased from memory.
 HTTP request/response secrets are not logged or passed to subprocess arguments.
 CLI discovery remains fresh and on demand. The web page stores only allowlisted
 location/load/tier metadata and its session UID in private `catalog.json`,
-with a three-hour TTL (as the official client); use Refresh catalogue for current loads. Stale locations remain browsable during refresh.
+with a three-hour TTL (as the official client); use Refresh server list in the page's settings menu for current loads. Stale locations remain browsable during refresh.
 Logout or rejected refresh credentials invalidate that cache; connecting
 still checks live entitlement and endpoint availability.
 
@@ -197,8 +197,9 @@ MIT; see [LICENSE](LICENSE).
 - Proton CAPTCHA/human verification is surfaced as an error, not bypassed.
 - IPv4 profiles only. IPv6 is neither configured nor blocked by this program;
   review GL.iNet's own IPv6/policy settings before treating traffic as protected.
-- Native integration reuses an existing WireGuard tunnel; it does not create
-  routing policies or new tunnels. Use GL.iNet's UI for those.
+- Native integration reuses an existing WireGuard tunnel and never changes its
+  routing policy. Only when no tunnel exists is the default one created; use
+  GL.iNet's UI for any other tunnel or policy.
 - No local-agent connection, port forwarding, feature toggles, or background
   renewal. Native cached certificates renew on use near expiry; existing
   GL.iNet fallback/kill-switch behavior remains vendor-managed.

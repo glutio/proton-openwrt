@@ -48,26 +48,44 @@ Open the router web interface, expand **VPN**, and choose **Proton VPN**.
 The page reuses the saved session immediately; installation and page loading
 do not log out, log in, change profiles, or connect.
 
-The page first loads only countries, with USA first and the rest sorted by
-their displayed English names rather than codes. Choose a country to load its cities,
-then a city to load its nodes. Optionally filter by node name, select a node,
-and click **Connect / switch server**. Nodes are sorted by lowest load first;
-load percentages reflect the displayed catalogue age. Existing registrations/native profiles are
-reused. The optional tunnel ID resolves installations with multiple tunnels.
-The existing VPN Dashboard displays the active **Proton CLI** group/profile.
+The page mirrors GL.iNet's own provider pages in **VPN Client Profile**: a
+provider header (status, last server-list update, installed version and a VPN
+Dashboard link), an **Update Servers** button, the server table and a footer
+with the connection actions.
 
-The native title sits above the card, with Sign out beside it; country/city stay on one row,
-and connection actions together below the node list. Optional tunnel selection
-is under Advanced. Catalogue controls and a static last-update timestamp live
-in the footer alongside the installed version; no elapsed-seconds counter is displayed.
-The node list shows 12 rows, and connected status is green.
-The panel reuses the firmware's native card, inherited font, theme colors and
-locally installed icon fonts. Icons are decorative; button and field labels
-remain text. No fonts, icon packages or other frontend dependencies are added.
+**Update Servers** opens the native drawer. It first lists only countries, with
+USA first and the rest sorted by their displayed English names rather than
+codes. Choose a country to load its cities and tick one or more cities; picks
+are kept while browsing other countries. **Apply** lists every server of the
+picked cities; **Cancel** keeps the current list. Unlike the built-in
+providers, applying imports nothing: a WireGuard key is registered with Proton
+only for the server you connect to. The list is not saved across page loads.
 
-Node labels show Proton's advertised Secure Core, Tor, P2P, Streaming and
-IPv6-server flags. Every listed endpoint has passed the existing WireGuard
-endpoint checks. The heading identifies this client's WireGuard/IPv4 transport:
+Servers are sorted by lowest load first; load percentages reflect the displayed
+server-list age. Optionally filter by name or city. Click a
+row and then **Connect / switch**, or use **Start** in the row's menu. The
+connected server has a green dot and offers **Stop** instead. Existing
+registrations/native profiles are reused. The only enabled WireGuard tunnel, or
+else the only tunnel, is used; with none, the default tunnel is created as the
+native **Start** does; with several candidates a dialog asks which tunnel to
+use. The existing VPN Dashboard displays the active **Proton CLI**
+group/profile.
+
+The settings (gear) menu holds **Refresh server list**, **Restore original
+VPN**, **Advanced** (an explicit tunnel ID) and **Sign out**. The header shows a
+static last-update timestamp; no elapsed-seconds counter is displayed.
+Connected status is green.
+
+The page uses the firmware's globally registered components (table, drawer,
+checkbox grid, search input, dropdown, dialog, radio group, tips, buttons), inherited font, theme
+variables and locally installed icon font, so it follows the light, classic and
+dark themes. GL.iNet's page-level CSS is component-scoped, so the matching
+declarations are copied under `#proton-vpn-view`. No fonts, icon packages or
+other frontend dependencies are added.
+
+Each server lists Proton's advertised Secure Core, Tor, P2P, Streaming and
+IPv6-server flags under its name. Every listed endpoint has passed the existing WireGuard
+endpoint checks. Profiles use WireGuard over IPv4:
 an IPv6-server label describes the server, not IPv6 support in these profiles.
 Other protocols are not inferred. Flags arrive with the normal catalogue fetch.
 
@@ -122,6 +140,7 @@ two-letter `country` and returns `{cities:[{city,servers}],cache}`. `servers`
 takes `country`/`city` and returns `{servers:[{name,city,load,tier,features}],cache}`.
 An omitted city still supports already-open pre-upgrade pages; the new page
 always requests one city. Missing cities use the `Unspecified` bucket.
+`status` also lists `tunnels:[{tunnel_id,name,enabled}]` for the tunnel dialog.
 
 The private `/etc/proton-openwrt/catalog.json` cache contains only the current
 session UID, fetch timestamp, and allowlisted name/country/city/load/tier/features fields.
@@ -139,7 +158,7 @@ freshness under the existing exclusive lock before fetching, preventing
 duplicate refreshes. The refresh button sends `{force:true}`. No timer
 downloads catalogues: refresh is lazy on stale browsing/page opening or explicit.
 
-The footer shows a static fetch date/time and refresh errors. A loading overlay
+The header shows a static fetch date/time; refresh errors appear above the table. A loading overlay
 over the card explains that the server list is refreshing and blocks pointer
 interaction while it runs; saved selections are retained. Successful refresh queues
 list updates on the next five-second status poll, preserving valid selections
@@ -198,7 +217,7 @@ node ui.cjs open "$env:TEMP\proton-openwrt-browser"
 npm run test:ui
 ```
 
-`npm test` runs focused progressive browsing, refresh and contention tests.
+`npm test` runs focused browsing, server-list, tunnel-choice, refresh and contention tests.
 The installed component can also be rendered in headless Chrome using the
 router's own Vue runtime and SSH-bridged, read-only native RPC:
 

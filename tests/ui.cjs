@@ -4,6 +4,12 @@ const { execFile } = require("node:child_process");
 const { promisify } = require("node:util");
 const url = "http://192.168.8.1/#/proton-vpn";
 
+const menu = async (page, id) => {
+    await page.locator("[data-testid=settings]").hover();
+    await page.locator(`[data-testid=${id}]`).waitFor({state:"visible"});
+    return page.locator(`[data-testid=${id}]`);
+};
+
 (async () => {
     if (process.argv[2] === "component") {
         assert(process.argv[3], "Supply the SSH identity file for the test router.");
@@ -36,34 +42,36 @@ const url = "http://192.168.8.1/#/proton-vpn";
                 const Component = root.__vue__.$options._base.extend(options);
                 window.testProton = new Component().$mount(host);
             });
-            await page.locator("[data-testid=country] option").nth(1).waitFor({state:"attached"});
+            await page.waitForFunction(() => window.testProton.countries.length > 0 && !window.testProton.busy);
             const appearance = await page.evaluate(async () => {
                 await document.fonts.ready;
                 const root = document.querySelector("#proton-vpn-view");
                 return {
-                    nativeCard:root.classList.contains("gl-card-wrapper"),
+                    nativeCard:getComputedStyle(root.querySelector(".client-body")).backgroundColor
+                        === getComputedStyle(root.querySelector(".provider-logo")).backgroundColor,
                     font:getComputedStyle(root).fontFamily,
                     nativeFont:getComputedStyle(document.body).fontFamily,
-                    icons:Array.from(root.querySelectorAll(".proton-icon"), icon => {
+                    icons:Array.from(root.querySelectorAll(".iconfont"), icon => {
                         const font = getComputedStyle(icon).fontFamily;
                         return {
-                            decorative:icon.getAttribute("aria-hidden") === "true",
                             glyph:getComputedStyle(icon, "::before").content,
                             nativeFont:/iconfont|element-icons/.test(font) && document.fonts.check("14px " + font)
                         };
                     })
                 };
             });
-            assert(appearance.nativeCard, "Use the installed native card component.");
+            assert(appearance.nativeCard, "The page card must use the native theme's card colour.");
             assert.equal(appearance.font, appearance.nativeFont, "Inherit the router's existing font.");
             assert(appearance.icons.length > 0 && appearance.icons.every(icon =>
-                icon.decorative && icon.nativeFont && !["none","normal",'""'].includes(icon.glyph)),
-                "Decorative icons must resolve to loaded native font glyphs.");
-            assert(await page.getByRole("button", {name:"Sign out",exact:true}).isVisible(),
-                "Icons must not replace accessible button labels.");
-            const countryOptions = await page.locator("[data-testid=country] option").evaluateAll(options =>
-                options.filter(option => option.value).map(option =>
-                    ({code:option.value,name:option.textContent.replace(/ \(\d+\)$/, "")})));
+                icon.nativeFont && !["none","normal",'""'].includes(icon.glyph)),
+                "Icons must resolve to loaded native font glyphs.");
+            assert.match(await (await menu(page, "logout")).textContent(), /Sign out/,
+                "Sign out must be available from the settings menu.");
+            await page.locator("[data-testid=select-servers]").click();
+            await page.locator("[data-testid=country]").first().waitFor({state:"visible"});
+            const countryOptions = await page.locator("[data-testid=country]").evaluateAll(options =>
+                options.map(option =>
+                    ({code:option.dataset.country,name:option.textContent.trim().replace(/ \(\d+\)$/, "")})));
             assert.equal(countryOptions[0].code, "US", "USA must be the first country.");
             const remaining = countryOptions.slice(1).map(c => c.name);
             assert.deepEqual(remaining, remaining.slice().sort((a, b) => a.localeCompare(b, "en")),
@@ -71,59 +79,57 @@ const url = "http://192.168.8.1/#/proton-vpn";
             assert.equal(await page.locator("#proton-vpn-view .proton-warning").count(), 0);
             assert.equal(await page.getByText("Uses GL.iNet's existing WireGuard dashboard, routing, DNS and kill switch.", {exact:true}).count(), 0);
             assert.equal(await page.getByText("Signed in using the session already stored on this router.", {exact:true}).count(), 0);
-            const title = await page.locator("#proton-vpn-view h2").boundingBox();
-            const logout = await page.locator("[data-testid=logout]").boundingBox();
-            assert(logout.x > title.x && Math.abs(logout.y + logout.height / 2 - title.y - title.height / 2) < 3,
-                "Sign out must be right-aligned on the title row.");
-            const countryBox = await page.locator("[data-testid=country]").boundingBox();
-            const cityBox = await page.locator("[data-testid=city]").boundingBox();
-            assert(Math.abs(countryBox.y - cityBox.y) < 2 && cityBox.x > countryBox.x,
-                "Country and city must share a row on desktop.");
-            assert.equal(await page.locator("[data-testid=city]").inputValue(), "");
-            assert.equal(await page.locator("[data-testid=server] option").count(), 0);
-            await page.locator("[data-testid=country]").selectOption("CA");
-            await page.locator("[data-testid=city] option").nth(1).waitFor({state:"attached"});
-            const city = await page.locator("[data-testid=city] option").nth(1).evaluate(option => option.value);
-            await page.locator("[data-testid=city]").selectOption(city);
-            await page.locator("[data-testid=server] option").first().waitFor({state:"attached"});
-            const nodes = await page.locator("[data-testid=server] option").count();
-            const loads = await page.locator("[data-testid=server] option").evaluateAll(options =>
+            assert.equal(await page.locator("[data-testid=server]").count(), 0);
+            await page.locator("[data-testid=country][data-country=CA]").click();
+            await page.locator("[data-testid=city]").first().waitFor({state:"visible"});
+            const city = await page.locator("[data-testid=city]").first().evaluate(option => option.dataset.city);
+            await page.locator("[data-testid=city]").first().click();
+            await page.locator("[data-testid=drawer-apply]").click();
+            await page.locator("[data-testid=server]").first().waitFor({state:"attached"});
+            const listed = await page.evaluate(() => window.testProton.servers.map(s =>
+                ({name:s.name,city:s.city,features:s.features & 31 ? window.testProton.nodeFeatures(s) : ""})));
+            assert(listed.length > 0 && listed.every(s => s.city === city));
+            const nodes = await page.locator("[data-testid=server]").count();
+            assert.equal(nodes, listed.length, "Every server of the city is listed.");
+            const loads = await page.locator("[data-testid=server]").evaluateAll(options =>
                 options.map(option => Number(option.dataset.load)));
             assert(loads.every((load, index) => index === 0 || loads[index - 1] <= load),
-                "Rendered nodes must be ordered from lowest to highest load.");
-            const capabilities = await page.evaluate(() => window.testProton.servers
-                .filter(s => s.features & 31).map(s => ({name:s.name,features:window.testProton.nodeFeatures(s)})));
-            assert(capabilities.length > 0, "Live catalogue should retain node feature flags.");
-            const optionTexts = await page.locator("[data-testid=server] option").allTextContents();
-            for (const capability of capabilities) {
-                assert(optionTexts.some(text =>
-                    text.startsWith(capability.name + " - ") && text.includes(capability.features)));
+                "Rendered servers must be ordered from lowest to highest load.");
+            const rendered = await page.locator("[data-testid=server]").evaluateAll(options =>
+                options.map(option => ({name:option.dataset.name,text:option.textContent})));
+            for (const row of rendered) {
+                assert(row.text.includes(listed.find(s => s.name === row.name).features));
             }
             const actionBoxes = await Promise.all(["connect","disconnect","restore"].map(id =>
                 page.locator(`[data-testid=${id}]`).boundingBox()));
             assert(actionBoxes.every(box => Math.abs(box.y - actionBoxes[0].y) < 2),
                 "Connection buttons must share one row on desktop.");
-            const footer = await page.locator(".proton-footer").boundingBox();
-            assert(footer.y > actionBoxes[0].y, "Catalogue controls must be below connection actions.");
             assert(!/seconds|cached/.test(await page.locator("[data-testid=catalog-age]").textContent()),
                 "Catalogue metadata must use a static timestamp, not a ticking age.");
-            assert.equal(await page.locator("[data-testid=tunnel]").isVisible(), false);
-            await page.locator(".proton-advanced summary").click();
+            assert.equal(await page.locator("[data-testid=tunnel]").count(), 0);
+            await (await menu(page, "advanced")).click();
             assert(await page.locator("[data-testid=tunnel]").isVisible());
-            await page.locator(".proton-advanced summary").click();
-            assert((await page.locator("#proton-vpn-view").boundingBox()).height < 650,
-                "The desktop page should remain compact.");
+            await (await menu(page, "advanced")).click();
+            assert.equal(await page.locator("[data-testid=tunnel]").count(), 0);
             if (process.argv[4]) await page.screenshot({path:process.argv[4],fullPage:true});
-            const name = await page.locator("[data-testid=server] option").first().evaluate(option => option.value);
-            await page.locator("[data-testid=server]").selectOption(name);
+            const name = await page.locator("[data-testid=server]").first().evaluate(option => option.dataset.name);
+            await page.locator("[data-testid=server]").first().click();
+            assert.equal(await page.evaluate(() => window.testProton.server), name, "Clicking a row selects it.");
+            assert(await page.locator("[data-testid=connect]").isEnabled());
             await page.locator("[data-testid=search]").fill(name);
-            assert(await page.locator("[data-testid=server] option").count() >= 1);
+            assert(await page.locator("[data-testid=server]").count() >= 1);
+            await page.locator("[data-testid=search]").fill("");
             assert(await page.locator("[data-testid=catalog-age]").isVisible());
             assert.equal(await page.locator("[data-testid=error]").count(), 0);
-            await page.locator("[data-testid=country]").selectOption("US");
-            await page.waitForFunction(() => !window.testProton.busy && window.testProton.cities.length > 0);
-            assert.equal(await page.locator("[data-testid=city]").inputValue(), "");
-            assert.equal(await page.locator("[data-testid=server] option").count(), 0);
+            await page.locator("[data-testid=select-servers]").click();
+            await page.locator("[data-testid=country][data-country=US]").click();
+            await page.locator("[data-testid=city]").first().waitFor({state:"visible"});
+            await page.locator("[data-testid=city]").first().click();
+            await page.locator("[data-testid=all-countries]").click();
+            await page.locator("[data-testid=country]").first().waitFor({state:"visible"});
+            await page.locator("[data-testid=drawer-cancel]").click();
+            assert.equal(await page.locator("[data-testid=server]").count(), nodes,
+                "Cancelling the drawer must keep the listed servers.");
             await page.setViewportSize({width:390,height:844});
             assert(await page.locator("#proton-vpn-view").evaluate(el => el.scrollWidth <= el.clientWidth),
                 "Compact controls must not overflow on mobile.");
@@ -148,30 +154,30 @@ const url = "http://192.168.8.1/#/proton-vpn";
                 window.testProton.info = {authenticated:false,managed:true,connected:true,
                     connection:{name:"Test tunnel",enabled:true,status:1,matches_configuration:true}};
             });
-            const statusColor = () => page.locator("[data-testid=connection-status]")
-                .evaluate(el => getComputedStyle(el).color);
-            assert.equal(await statusColor(), "rgb(21, 128, 61)", "Connected status must be green.");
+            const isGreen = () => page.locator("[data-testid=connection-status]")
+                .evaluate(el => el.classList.contains("proton-connected"));
+            assert(await isGreen(), "Connected status must be green.");
             await page.evaluate(() => { window.testProton.info.connection.matches_configuration = false; });
-            assert.notEqual(await statusColor(), "rgb(21, 128, 61)",
+            assert(!(await isGreen()),
                 "A previous profile's connected state must not remain green during handoff.");
             assert.match(await page.locator("[data-testid=connection-status]").textContent(), /Connecting:/);
             await page.evaluate(() => { window.testProton.info.connection.matches_configuration = true; });
-            assert.equal(await statusColor(), "rgb(21, 128, 61)");
+            assert(await isGreen());
             await page.evaluate(() => { window.testProton.info.connected = false; });
-            assert.notEqual(await statusColor(), "rgb(21, 128, 61)", "Connecting status must not be green.");
+            assert(!(await isGreen()), "Connecting status must not be green.");
             await page.evaluate(() => { window.testProton.info.connection.enabled = false; });
-            assert.notEqual(await statusColor(), "rgb(21, 128, 61)", "Disconnected status must not be green.");
+            assert(!(await isGreen()), "Disconnected status must not be green.");
             await page.evaluate(() => {
                 window.testProton.info = {authenticated:false,managed:false,connected:false,
                     connection:{name:"Original VPN",enabled:true,status:1,matches_configuration:true}};
             });
-            assert.equal(await statusColor(), "rgb(21, 128, 61)",
+            assert(await isGreen(),
                 "A connected original native VPN must also be green.");
             await page.evaluate(() => { window.testProton.info.connection.matches_configuration = false; });
-            assert.notEqual(await statusColor(), "rgb(21, 128, 61)",
+            assert(!(await isGreen()),
                 "An unmanaged previous profile must not remain green during handoff.");
             await page.evaluate(() => window.testProton.$destroy());
-            console.log(`PASS: native card, inherited typography and loaded decorative icons; compact native Vue layout, connected-only green status, taller node list, title/sign-out row, country/city row, action-button row, footer timestamp, Advanced, mobile fit and login-only HTTP warning; USA first and ${nodes} nodes in ${city} sorted by load. Only read-only SSH-bridged RPCs; real account and VPN untouched.`);
+            console.log(`PASS: native card, inherited typography and loaded icons; native provider layout, connected-only green status, server drawer, settings menu, action-button row, header timestamp, Advanced, mobile fit and login-only HTTP warning; USA first and ${nodes} nodes in ${city} sorted by load. Only read-only SSH-bridged RPCs; real account and VPN untouched.`);
         } finally { await browser.close(); }
         return;
     }
@@ -197,15 +203,17 @@ const url = "http://192.168.8.1/#/proton-vpn";
     const page = await context.newPage();
     try {
         await page.goto(url);
-        await page.locator("[data-testid=country] option").nth(1).waitFor({state:"attached",timeout:150000});
-        assert(await page.locator("[data-testid=logout]").isVisible());
+        await page.locator("[data-testid=select-servers]").waitFor({state:"visible",timeout:150000});
+        await menu(page, "logout");
         assert(await page.getByText("Proton VPN", {exact:true}).count() >= 2, "Native menu entry missing");
-        const countries = await page.locator("[data-testid=country] option").count() - 1;
-        assert.equal(await page.locator("[data-testid=server] option").count(), 0);
-        assert.equal(await page.locator("[data-testid=city] option").count(), 1);
-        await page.locator("[data-testid=country]").selectOption("CA");
-        await page.locator("[data-testid=city] option").nth(1).waitFor({state:"attached"});
-        const city = await page.locator("[data-testid=city] option").nth(1).evaluate(option => option.value);
+        assert.equal(await page.locator("[data-testid=server]").count(), 0);
+        await page.locator("[data-testid=select-servers]").click();
+        await page.locator("[data-testid=country]").first().waitFor({state:"visible",timeout:150000});
+        const countries = await page.locator("[data-testid=country]").count();
+        assert.equal(await page.locator("[data-testid=city]").count(), 0);
+        await page.locator("[data-testid=country][data-country=CA]").click();
+        await page.locator("[data-testid=city]").first().waitFor({state:"visible"});
+        const city = await page.locator("[data-testid=city]").first().evaluate(option => option.dataset.city);
         const canada = page.waitForResponse(response => {
             if (!response.url().endsWith("/rpc")) return false;
             const request = response.request().postDataJSON();
@@ -213,16 +221,17 @@ const url = "http://192.168.8.1/#/proton-vpn";
                 && request.params[2] === "servers" && request.params[3].country === "CA"
                 && request.params[3].city === city;
         }, {timeout:150000});
-        await page.locator("[data-testid=city]").selectOption(city);
+        await page.locator("[data-testid=city]").first().click();
+        await page.locator("[data-testid=drawer-apply]").click();
         const canadian = (await (await canada).json()).result.servers;
         assert(canadian.length > 0);
         assert(canadian.every(s => s.city === city));
         await page.waitForFunction(count =>
-            document.querySelectorAll("[data-testid=server] option").length === count,
+            document.querySelectorAll("[data-testid=server]").length === count,
         canadian.length);
-        const name = await page.locator("[data-testid=server] option").first().evaluate(option => option.value);
+        const name = await page.locator("[data-testid=server]").first().evaluate(option => option.dataset.name);
         await page.locator("[data-testid=search]").fill(name);
-        assert(await page.locator("[data-testid=server] option").count() >= 1);
+        assert(await page.locator("[data-testid=server]").count() >= 1);
         assert.equal(await page.locator("[data-testid=error]").count(), 0);
         assert(await page.locator("[data-testid=catalog-age]").isVisible());
         console.log(`PASS: native menu, saved login, status, ${countries} countries, city selection, ${canadian.length} nodes in ${city}, cache age and search.`);
@@ -240,9 +249,9 @@ const url = "http://192.168.8.1/#/proton-vpn";
         } else if (method === "countries") {
             result = {countries:[{country:"US",servers:1}]};
         } else if (method === "servers") {
-            result = {servers:[{name:"US#TEST",country:"US",city:"Test",load:1,tier:0}]};
+            result = {servers:[{name:"US#TEST",city:"Test",load:1,tier:0},{name:"US#BUSY",city:"Test",load:90,tier:0}]};
         } else if (method === "cities") {
-            result = {cities:[{city:"Test",servers:1}]};
+            result = {cities:[{city:"Test",servers:2}]};
         } else if (method === "login") {
             logins++;
             assert.equal(params.username, "test-user");
@@ -272,12 +281,23 @@ const url = "http://192.168.8.1/#/proton-vpn";
         }
         authenticated = true;
         await mock.reload();
-        await mock.locator("[data-testid=country] option").nth(1).waitFor({state:"attached"});
+        await mock.locator("[data-testid=select-servers]").waitFor({state:"visible"});
         await mock.evaluate(() => { window.confirm = () => true; });
-        await mock.locator("[data-testid=logout]").click();
+        assert.equal(await mock.locator("[data-testid=server]").count(), 0);
+        await mock.locator("[data-testid=select-servers]").click();
+        await mock.locator("[data-testid=country][data-country=US]").click();
+        await mock.locator("[data-testid=city]").first().click();
+        await mock.locator("[data-testid=drawer-apply]").click();
+        await mock.locator("[data-testid=server][data-name='US#BUSY']").waitFor({state:"attached"});
+        assert.equal(await mock.locator("[data-testid=server]").count(), 2);
+        assert.match(await mock.locator("[data-testid=location]").textContent(), /2 servers/);
+        await mock.locator("[data-testid=search]").fill("busy");
+        assert.equal(await mock.locator("[data-testid=server]").count(), 1);
+        await mock.locator("[data-testid=search]").fill("");
+        await (await menu(mock, "logout")).click();
         await mock.locator("[data-testid=username]").waitFor({state:"visible"});
         assert.equal(logouts, 1);
-        console.log("PASS: mocked login/TOTP, immediate credential clearing, error display and logout; real session untouched.");
+        console.log("PASS: mocked login/TOTP, immediate credential clearing, error display, server listing, search and logout; real session untouched.");
     } finally { await mock.close(); }
     process.exit(0);
 })().catch(error => { console.error(error.message); process.exit(1); });
