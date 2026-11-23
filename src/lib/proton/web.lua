@@ -89,7 +89,14 @@ function M.status(state)
         result.selected = { name = selected.name, country = selected.country }
     end
     local status = gl.status()
-    local tunnels = gl.call("vpn-client", "get_tunnel").tunnels or {}
+    local tunnels = gl.tunnels()
+    result.tunnels = {}
+    for _, t in ipairs(tunnels) do
+        if type(t.tunnel_id) == "number" then
+            result.tunnels[#result.tunnels + 1] = { tunnel_id = t.tunnel_id,
+                name = text(t.name, 128) and t.name or ("Tunnel " .. t.tunnel_id), enabled = t.enabled == true }
+        end
+    end
     for _, active in ipairs(status.status_list or {}) do
         if not result.connection or original and active.tunnel_id == original.tunnel_id then
             result.connection = {
@@ -210,6 +217,9 @@ function M.error(err)
         if err.kind == "scope" then return "The Proton session lacks the required VPN permission." end
         if err.kind == "rate_limit" then return "Proton rate-limited the request; try again later." end
         if err.kind == "api" then
+            if err.code == 8002 then
+                return "Proton did not accept the username or password. Use your Proton account sign-in, not the OpenVPN/IKEv2 credentials."
+            end
             return string.format("Proton rejected the request (HTTP %d, code %d).",
                 tonumber(err.status) or 0, tonumber(err.code) or 0)
         end
@@ -221,7 +231,9 @@ function M.error(err)
         { "FIDO2", "FIDO2-only authentication is not supported." },
         { "no eligible server", "The selected server is unavailable or not included in your plan." },
         { "multiple WireGuard", "Multiple WireGuard tunnels exist; enter the desired tunnel ID." },
-        { "no matching WireGuard", "Choose an existing WireGuard tunnel in GL.iNet's VPN Dashboard first." },
+        { "no matching WireGuard", "That VPN tunnel no longer exists; choose another tunnel." },
+        { "restore the previous tunnel", "Proton already manages another tunnel. Start on that tunnel, or use Restore original VPN first." },
+        { "tunnel creation was not confirmed", "GL.iNet did not confirm the new VPN tunnel; check the VPN Dashboard." },
         { "no saved connection", "There is no original connection saved to restore." },
         { "no Proton-managed", "There is no Proton-managed connection to disconnect." },
         { "refusing to disconnect", "The tunnel now uses another VPN; it was not disconnected." },

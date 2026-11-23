@@ -8,15 +8,21 @@ const source = fs.readFileSync(path.join(__dirname, "..", "ui", "proton-vpn.js")
 function component(rpc, delay) {
     let state;
     const options = vm.runInNewContext(source, {
-        window: {},
+        window: {confirm: () => true},
         setTimeout: resolve => {
             delay(state);
             queueMicrotask(resolve);
         }
     });
     state = Object.assign(options.data(), options.methods, {alive:true,rpc});
+    for (const name of Object.keys(options.computed)) {
+        Object.defineProperty(state, name, {get: () => options.computed[name].call(state)});
+    }
     return state;
 }
+// Values created inside the vm context have another realm's prototypes.
+const plain = value => JSON.parse(JSON.stringify(value));
+const noRetry = () => { throw new Error("unexpected retry"); };
 
 test("Connected text and readiness reject stale profile state during handoff", () => {
     const options = vm.runInNewContext(source, {window:{}});
@@ -65,7 +71,7 @@ test("USA is first and remaining countries sort by displayed name without changi
         ["AL","CA","DE","ZA","AE"]);
 });
 
-test("nodes sort by ascending load without changing cached order, including filtered results", () => {
+test("servers sort by ascending load without changing cached order, including filtered results", () => {
     const options = vm.runInNewContext(source, {window:{}});
     const state = {search:"",servers:[
         {name:"US#slow",city:"Chicago",load:82},
@@ -83,15 +89,14 @@ test("nodes sort by ascending load without changing cached order, including filt
     assert.equal(filtered().length, 0);
 });
 
-test("progressive country, city and node loading recover from lock contention", async () => {
+test("progressive country and city loading recover from lock contention", async () => {
     const calls = {countries:0,cities:0,servers:0};
     let waits = 0;
     const state = component(async action => {
         if (action === "status") return {authenticated:true};
         if (++calls[action] === 1) return {busy:true};
         if (action === "countries") return {countries:[{country:"US",servers:1}]};
-        if (action === "cities") return {cities:[{city:"Test",servers:1}]};
-        return {servers:[{name:"US#1",city:"Test",load:1}]};
+        return {cities:[{city:"Test",servers:1}]};
     }, state => {
         waits++;
         assert(state.busy);
@@ -99,19 +104,13 @@ test("progressive country, city and node loading recover from lock contention", 
         assert.equal(state.error, "");
     });
     await state.loadCountries();
-    assert.equal(state.country, "");
+    assert.equal(state.countries.length, 1);
     assert.equal(calls.cities, 0);
+    await state.pickCountry("US");
+    assert.equal(state.drawerCountry, "US");
+    assert.equal(state.drawerCities.length, 1);
     assert.equal(calls.servers, 0);
-    state.country = "US";
-    await state.loadCities();
-    assert.equal(state.country, "US");
-    assert.equal(state.city, "");
-    assert.equal(calls.servers, 0);
-    state.city = "Test";
-    await state.loadServers();
-    assert.equal(state.server, "");
-    assert.equal(state.servers.length, 1);
-    assert.equal(waits, 3);
+    assert.equal(waits, 2);
     assert.equal(state.error, "");
     assert.equal(state.notice, "");
     assert.equal(state.busy, false);
@@ -131,26 +130,26 @@ test("stale catalogue refresh is single-flight while saved locations remain usab
         if (action === "countries") return {cache,countries:[{country:"US",servers:1}]};
         if (action === "cities") return {cache,cities:[{city:"Test",servers:1}]};
         return {cache,servers:[{name:"US#1",city:"Test",load:1}]};
-    }, () => { throw new Error("unexpected retry"); });
+    }, noRetry);
     const refresh = state.refreshCatalog;
     state.refreshCatalog = (...args) => (pending = refresh.apply(state, args));
     await state.loadCountries();
     assert(state.updating && !state.busy);
-    state.country = "US";
-    await state.loadCities();
-    state.city = "Test";
-    await state.loadServers();
+    await state.pickCountry("US");
+    state.toggleCity(state.drawerCities[0]);
+    await state.applyDrawer();
+    assert.equal(state.servers.length, 1);
     state.server = "US#1";
     state.search = "US";
     assert.equal(refreshes, 1);
-    assert.equal(state.servers.length, 1);
+    assert.equal(state.drawerCities.length, 1);
     finish();
     await pending;
     assert(!state.updating && state.reloadPending && !state.catalog.stale);
-    await state.loadCountries();
-    assert.equal(state.city, "Test");
+    await state.reload();
     assert.equal(state.server, "US#1");
     assert.equal(state.search, "US");
+    assert.equal(state.drawerCities.length, 1);
     assert.equal(refreshes, 1);
 });
 
@@ -160,7 +159,7 @@ test("failed background refresh keeps the last catalogue and reports a separate 
         if (action === "status") return {authenticated:true};
         if (action === "refresh_catalog") throw new Error("upstream unavailable");
         return {cache:{fetched_at:1000,expires_at:1300,stale:true},countries:[{country:"US",servers:1}]};
-    }, () => { throw new Error("unexpected retry"); });
+    }, noRetry);
     const refresh = state.refreshCatalog;
     state.refreshCatalog = (...args) => (pending = refresh.apply(state, args));
     await state.loadCountries();
@@ -171,34 +170,104 @@ test("failed background refresh keeps the last catalogue and reports a separate 
     assert(!state.updating && !state.reloadPending);
 });
 
-test("changing country clears the previous city, node and search", async () => {
+test("changing country in the drawer clears the previous cities and search but keeps picks", async () => {
     const state = component(async action => action === "status" ? {} :
-        {cities:[{city:"Toronto",servers:1}]}, () => { throw new Error("unexpected retry"); });
-    Object.assign(state, {country:"CA",city:"Chicago",server:"US#1",search:"old",servers:[{name:"US#1"}]});
-    await state.loadCities();
-    assert.equal(state.city, "");
-    assert.equal(state.server, "");
-    assert.equal(state.search, "");
-    assert.equal(state.servers.length, 0);
-    assert.equal(state.cities[0].city, "Toronto");
+        {cities:[{city:"Toronto",servers:1}]}, noRetry);
+    Object.assign(state, {drawerCountry:"US",drawerCities:[{city:"Chicago",servers:2}],drawerSearch:"old"});
+    state.toggleCity(state.drawerCities[0]);
+    await state.pickCountry("CA");
+    assert.equal(state.drawerSearch, "");
+    assert.equal(state.drawerCities[0].city, "Toronto");
+    assert.deepEqual(plain(state.pickList), [{country:"US",city:"Chicago",servers:2}]);
+    state.toggleCity(state.drawerCities[0]);
+    state.toggleCity(state.drawerCities[0]);
+    assert.equal(state.pickList.length, 1);
 });
 
-test("a location removed during refresh clears choices when Lua returns an empty object", async () => {
+test("lists emptied during refresh clear the selection when Lua returns an empty object", async () => {
     const state = component(async action => action === "status" ? {} :
-        {countries:{},cities:{},servers:{}}, () => { throw new Error("unexpected retry"); });
-    state.country = "US";
-    state.city = "Test";
-    state.server = "US#1";
-    await state.loadServers(true);
+        {countries:{},cities:{},servers:{}}, noRetry);
+    Object.assign(state, {server:"US#1",servers:[{name:"US#1"}],countries:[{country:"US",servers:1}],
+        listed:[{country:"US",city:"Test",servers:1}]});
+    await state.pickCountry("US");
+    assert.equal(state.drawerCities.length, 0);
+    await state.reload();
+    assert.equal(state.countries.length, 0);
     assert.equal(state.servers.length, 0);
     assert.equal(state.server, "");
-    await state.loadCities(true);
-    assert.equal(state.cities.length, 0);
-    assert.equal(state.city, "");
-    await state.loadCountries();
-    assert.equal(state.countries.length, 0);
-    assert.equal(state.country, "");
     assert.equal(state.error, "");
+});
+
+test("Apply lists every server of the picked cities and imports nothing", async () => {
+    const calls = [];
+    const state = component(async (action, params) => {
+        if (action === "status") return {authenticated:true};
+        assert.equal(action, "servers");
+        calls.push(plain(params));
+        const count = params.city === "Chicago" ? 250 : 2;
+        return {servers:Array.from({length:count}, (_, i) => ({name:params.country + "#" + params.city + i,city:params.city,load:i % 100}))};
+    }, noRetry);
+    state.openDrawer();
+    state.drawerCountry = "US";
+    state.toggleCity({city:"Chicago",servers:250});
+    state.drawerCountry = "CA";
+    state.toggleCity({city:"Toronto",servers:2});
+    await state.applyDrawer();
+    assert.deepEqual(calls, [{country:"US",city:"Chicago"},{country:"CA",city:"Toronto"}]);
+    assert.equal(state.servers.length, 252);
+    assert.equal(state.servers[251].country, "CA");
+    assert.equal(state.showDrawer, false);
+    state.server = "CA#Toronto1";
+    state.openDrawer();
+    assert.equal(state.pickList.length, 2, "Reopening the drawer shows the listed cities.");
+    state.drawerCountry = "US";
+    state.toggleCity({city:"Chicago",servers:250});
+    await state.applyDrawer();
+    assert.equal(state.servers.length, 2);
+    assert.equal(state.server, "CA#Toronto1", "A still-listed selection is kept.");
+    state.openDrawer();
+    state.drawerCountry = "CA";
+    state.toggleCity({city:"Toronto",servers:2});
+    await state.applyDrawer();
+    assert.equal(state.servers.length, 0);
+    assert.equal(state.server, "");
+});
+
+test("a failed server request keeps the previous list", async () => {
+    const state = component(async action => {
+        if (action === "status") return {};
+        throw new Error("upstream unavailable");
+    }, noRetry);
+    Object.assign(state, {servers:[{name:"US#1"}],server:"US#1",drawerCountry:"US"});
+    state.toggleCity({city:"Test",servers:1});
+    await state.applyDrawer();
+    assert.equal(state.servers.length, 1);
+    assert.equal(state.listed.length, 0);
+    assert.equal(state.server, "US#1");
+    assert.equal(state.error, "upstream unavailable");
+});
+
+test("an ambiguous tunnel opens the tunnel picker, whose choice is sent with the retry", async () => {
+    const web = fs.readFileSync(path.join(__dirname, "..", "src", "lib", "proton", "web.lua"), "utf8");
+    for (const message of ["Multiple WireGuard tunnels exist; enter the desired tunnel ID.",
+        "That VPN tunnel no longer exists; choose another tunnel."]) {
+        assert(web.includes(message), "The page matches this backend message.");
+        const sent = [];
+        const state = component(async (action, params) => {
+            if (action === "status") return {authenticated:true,tunnels:[{tunnel_id:1},{tunnel_id:2}]};
+            sent.push(plain(params));
+            if (!params.tunnel_id) throw new Error(message);
+            return {requested:true};
+        }, noRetry);
+        await state.startServer({name:"US#1"});
+        assert(state.showTunnel);
+        assert.equal(state.error, "");
+        state.tunnelPick = 2;
+        await state.startOnTunnel();
+        assert.deepEqual(sent, [{server:"US#1"},{server:"US#1",tunnel_id:2}]);
+        assert(!state.showTunnel);
+        assert.match(state.notice, /Connection requested/);
+    }
 });
 
 test("discovery contention has a bounded wait", async () => {
@@ -227,7 +296,7 @@ test("a finished request does not start server discovery after leaving the page"
         assert.equal(action, "countries");
         state.alive = false;
         return {countries:[{country:"US",servers:1}]};
-    }, () => { throw new Error("unexpected retry"); });
+    }, noRetry);
     await state.loadCountries();
     assert.equal(calls, 1);
 });
@@ -239,7 +308,7 @@ test("mutations and ordinary discovery errors are never retried", async () => {
             if (method === "status") return {};
             attempts++;
             throw new Error("operation failed");
-        }, () => { throw new Error("unexpected retry"); });
+        }, noRetry);
         assert.equal(await state.perform(action, {}), null);
         assert.equal(attempts, 1);
         assert.equal(action === "refresh_catalog" ? state.catalogError : state.error, "operation failed");

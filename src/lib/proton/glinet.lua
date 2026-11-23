@@ -32,6 +32,11 @@ function M.call(module, func, params)
     if not ok then error(reply, 0) end
     return reply
 end
+
+function M.tunnels()
+    return M.call("vpn-client", "get_tunnel").tunnels or {}
+end
+
 local function configs(group_id)
     return assert(M.call("wg-client", "get_config_list", { group_id = group_id }).peers,
         "missing native WireGuard profile list")
@@ -103,35 +108,57 @@ function M.prepare(state)
     return { server = p.server, group_id = saved.group_id, peer_id = found }
 end
 
+-- Tunnel choice follows GL.iNet's own Start: an explicit ID wins; otherwise the sole enabled
+-- WireGuard tunnel, else the only tunnel there is. Several candidates need a choice from the user.
 local function tunnel(id)
+    local tunnels = M.tunnels()
     local found
-    for _, t in ipairs(M.call("vpn-client", "get_tunnel").tunnels) do
-        if t.via.type == "wireguard" and (id and t.tunnel_id == id or not id and t.enabled) then
+    for _, t in ipairs(tunnels) do
+        if id and t.tunnel_id == id or not id and t.enabled and t.via.type == "wireguard" then
             assert(not found, "multiple WireGuard tunnels; specify the tunnel ID")
             found = t
         end
     end
-    return assert(found, "no matching WireGuard tunnel; this command reuses an existing tunnel")
+    if not found and not id then
+        assert(#tunnels <= 1, "multiple WireGuard tunnels; specify the tunnel ID")
+        found = tunnels[1]
+    end
+    return found
+end
+
+local function existing_tunnel(id)
+    return assert(tunnel(id), "no matching WireGuard tunnel; this command reuses an existing tunnel")
 end
 
 function M.connect(state, id)
     local original = store.read(state, "gl-restore.json")
-    local t = tunnel(id or original and original.tunnel_id)
+    local wanted = id or original and original.tunnel_id
+    local t = wanted and existing_tunnel(wanted) or tunnel()
     assert(not original or original.tunnel_id == t.tunnel_id,
         "restore the previous tunnel before managing another")
     local imported = M.prepare(state)
-    if not original then
-        store.write(state, "gl-restore.json", {
-            tunnel_id = t.tunnel_id, enabled = t.enabled,
-            via = { type = t.via.type, configs = t.via.configs },
+    local via = { type = "wireguard", configs = {
+        { group_id = imported.group_id, id_list = { imported.peer_id } },
+    } }
+    if not t then
+        -- No tunnel yet: create the default one, exactly as the native Start does.
+        M.call("vpn-client", "add_tunnel", {
+            from = { type = "default" }, to = { type = "default" }, via = via,
+            name = "Tunnel 1", enabled = true,
         })
+        local created = M.tunnels()
+        assert(#created == 1, "native tunnel creation was not confirmed")
+        t = created[1]
+        store.write(state, "gl-restore.json", { tunnel_id = t.tunnel_id, enabled = false, via = via })
+    else
+        if not original then
+            store.write(state, "gl-restore.json", {
+                tunnel_id = t.tunnel_id, enabled = t.enabled,
+                via = { type = t.via.type, configs = t.via.configs },
+            })
+        end
+        M.call("vpn-client", "set_tunnel", { tunnel_id = t.tunnel_id, enabled = true, via = via })
     end
-    M.call("vpn-client", "set_tunnel", {
-        tunnel_id = t.tunnel_id, enabled = true,
-        via = { type = "wireguard", configs = {
-            { group_id = imported.group_id, id_list = { imported.peer_id } },
-        } },
-    })
     imported.tunnel_id = t.tunnel_id
     imported.requested = true
     return imported
@@ -139,7 +166,7 @@ end
 
 function M.restore(state)
     local original = assert(store.read(state, "gl-restore.json"), "no saved connection to restore")
-    tunnel(original.tunnel_id)
+    existing_tunnel(original.tunnel_id)
     M.call("vpn-client", "set_tunnel", original)
     store.delete(state, "gl-restore.json")
     return { tunnel_id = original.tunnel_id, restore_requested = true }
@@ -148,7 +175,7 @@ end
 function M.disconnect(state)
     local original = assert(store.read(state, "gl-restore.json"), "no Proton-managed tunnel to disconnect")
     local saved = assert(store.read(state, "glinet.json"), "no managed Proton profiles")
-    local t = tunnel(original.tunnel_id)
+    local t = existing_tunnel(original.tunnel_id)
     assert(#t.via.configs == 1 and t.via.configs[1].group_id == saved.group_id,
         "tunnel no longer uses the managed Proton group; refusing to disconnect another VPN")
     M.call("vpn-client", "set_tunnel", { tunnel_id = t.tunnel_id, enabled = false })

@@ -71,6 +71,9 @@ async function release() {
             setTimeout: (resolve, delay) => { waits++; return setTimeout(resolve, delay); }
         });
         const state = Object.assign(options.data(), options.methods, {alive:true});
+        for (const name of Object.keys(options.computed)) {
+            Object.defineProperty(state, name, {get: () => options.computed[name].call(state)});
+        }
         let allowRefresh, updating;
         const gate = new Promise(resolve => { allowRefresh = resolve; });
         const refresh = state.refreshCatalog;
@@ -83,26 +86,25 @@ async function release() {
         };
         await state.loadCountries();
         assert(!released && state.countries.length > 0 && state.catalog.stale);
-        assert.equal(state.country, "");
-        assert.equal(state.servers.length, 0);
-        state.country = "US";
-        await state.loadCities();
-        assert(!released && state.cities.length > 0 && state.updating && !state.busy);
-        state.city = state.cities.some(c => c.city === "Chicago") ? "Chicago" : state.cities[0].city;
-        await state.loadServers();
-        assert(!released && state.servers.length > 0);
-        assert(state.servers.every(s => s.city === state.city));
-        state.server = state.servers[0].name;
+        await state.pickCountry("US");
+        assert(!released && state.drawerCities.length > 0 && state.updating && !state.busy);
+        const picked = state.drawerCities.find(c => c.city === "Chicago") || state.drawerCities[0];
+        const city = picked.city;
+        state.toggleCity(picked);
+        await state.applyDrawer();
+        const nodes = state.servers;
+        assert(!released && nodes.length > 0);
+        assert(nodes.every(s => s.city === city));
+        state.server = nodes[0].name;
         allowRefresh();
         await updating;
         assert(released && waits > 0);
         assert(state.reloadPending && !state.catalog.stale);
-        const selected = state.server;
-        await state.loadCountries();
-        assert.equal(state.server, selected);
+        await state.reload();
+        assert.equal(state.server, nodes[0].name);
         assert.equal(state.error, "");
         assert.equal(state.busy, false);
-        console.log(`PASS: cached browsing bypassed actual account lock; stale refresh recovered; ${state.countries.length} countries, ${state.cities.length} cities, ${state.servers.length} nodes in ${state.city}; selection preserved. No VPN mutation requested.`);
+        console.log(`PASS: cached browsing bypassed actual account lock; stale refresh recovered; ${state.countries.length} countries, ${state.drawerCities.length} cities, ${nodes.length} nodes in ${city}; selection preserved. No VPN mutation requested.`);
     } finally {
         if (directory && !released) await release().catch(() => {});
     }

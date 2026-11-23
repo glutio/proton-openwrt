@@ -27,25 +27,16 @@ connection: plain HTTP does not encrypt the password, even on a LAN.
 
 ## Connect
 
+Click **Update Servers**, pick a country and one or more cities, then
+**Apply** to list their servers, least loaded first. Select a server and click
+**Connect / switch**, or use **Start** in its row menu. Only the server you
+connect to registers a WireGuard key on your Proton account.
+
 The page switches an **existing** WireGuard tunnel in GL.iNet's VPN Dashboard
-to the selected Proton server, keeping that tunnel's routing policy, DNS and
-kill switch. Pick a country, city and node, then **Connect / switch**.
-
-With several WireGuard tunnels, or a disabled one, enter its ID under
-**Advanced -> Existing tunnel ID**.
-
-**No tunnel yet (e.g. after a factory reset):** create one once from SSH:
-
-```sh
-proton-openwrt select US
-proton-openwrt prepare
-```
-
-This imports an inactive Proton profile under **VPN Client Profile ->
-WireGuard -> Proton CLI**. In **VPN Dashboard**, use **Add VPN Tunnel**, select
-that profile, choose your policy and enable it
-([GL.iNet guide](https://docs.gl-inet.com/router/en/4/interface_guide/vpn_dashboard/)).
-After that, use the Proton page normally.
+to that server, keeping the tunnel's routing policy, DNS and kill switch. A
+single disabled tunnel is enabled and reused. With several tunnels, the only
+enabled one is used; otherwise the page asks which one. With none (e.g. after a factory reset), the default
+tunnel is created, as GL.iNet's own **Start** does.
 
 **Disconnect** disables the managed tunnel. **Restore original VPN** puts back
 the profile the tunnel used before the first Proton connection. **Sign out**
@@ -82,8 +73,7 @@ updates. Exact dependency versions are in [dependencies.txt](docs/dependencies.t
 | `lua5.4`/`ffi`/`curl` check fails | Unsupported firmware; install only the missing package from GL.iNet's own feed (for example `lua-ffi-lua5.4` for missing FFI, or `curl` for the missing command), never generic OpenWrt feeds. |
 | Proton menu missing | Fully reload the admin panel. |
 | TLS or sign-in fails | Check router time and internet. Human verification (CAPTCHA) is not supported. |
-| "Choose an existing WireGuard tunnel" | Create the first tunnel as described above. |
-| "Multiple WireGuard tunnels exist" | Enter the tunnel ID under Advanced. |
+| "Multiple WireGuard tunnels exist" | Pick the tunnel in the dialog, or enter its ID under Advanced. |
 | "Another Proton operation is running" | Wait for it to finish; do not delete the lock file. |
 | Connected but traffic bypasses VPN | Check the tunnel's policy, DNS and kill switch in VPN Dashboard. |
 
